@@ -19,7 +19,7 @@ Animate (sequentially plot) the layers of a SpatRaster to create a movie.
   \item{x}{SpatRaster}
   \item{pause}{numeric. How long should be the pause be between layers?}  
   \item{main}{title for each layer. If not supplied the z-value is used if available. Otherwise the names are used.}  
-  \item{range}{numeric vector of length 2. Range of values to plot}
+  \item{range}{numeric vector of length 2. Range of values to plot. If missing (the default), the range of the combined layers is used. If NA, the range of each layer is used.}
   \item{maxcell}{positive integer. Maximum number of cells to use for the plot. If \code{maxcell < ncell(x)}, \code{spatSample(type="regular")} is used before plotting}
   \item{n}{integer > 0. Number of loops}
   \item{...}{Additional arguments passed to \code{\link{plot}}}
