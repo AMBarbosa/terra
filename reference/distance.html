@@ -3,29 +3,29 @@
 
 If x is a SpatRaster:
 If y is missing this method computes the distance, for all cells that are NA in SpatRaster x to the nearest cell that is not NA (or other values, see arguments "target" and "exclude").
-If y is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed (only if grid=FALSE).
+If y is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed.
 If y is a SpatVector, the distance to that SpatVector is computed for all cells, optionally after rasterization.
 The distance is always expressed in meter if the coordinate reference system is longitude/latitude, and in map units otherwise. Map units are typically meter, but inspect crs(x) if in doubt.
 Results are more precise, sometimes much more precise, when using longitude/latitude rather than a planar coordinate reference system, as these distort distance.
 If x is a SpatVector:
 If y is missing, a distance matrix between all objects in x is computed. A distance matrix object of class "dist" is returned.
-If y is a SpatVector the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and pairwise=TRUE, the distance between each pair of objects is computed, and a vector is returned.
+If y is a SpatVector, the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and pairwise=TRUE, the distance between each pair of objects is computed, and a vector is returned.
 If x is a matrix:
-x should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If y is a also a matrix, the distance between each points in x and all points in y is computed, unless pairwise=TRUE
-If y is missing, the distance between each points in x with all other points in x is computed, unless sequential=TRUE'><meta property="og:description" content='
+x should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If y is a also a matrix, the distance between each point in x and all points in y is computed, unless pairwise=TRUE
+If y is missing, the distance between each point in x with all other points in x is computed, unless sequential=TRUE'><meta property="og:description" content='
 
 If x is a SpatRaster:
 If y is missing this method computes the distance, for all cells that are NA in SpatRaster x to the nearest cell that is not NA (or other values, see arguments "target" and "exclude").
-If y is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed (only if grid=FALSE).
+If y is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed.
 If y is a SpatVector, the distance to that SpatVector is computed for all cells, optionally after rasterization.
 The distance is always expressed in meter if the coordinate reference system is longitude/latitude, and in map units otherwise. Map units are typically meter, but inspect crs(x) if in doubt.
 Results are more precise, sometimes much more precise, when using longitude/latitude rather than a planar coordinate reference system, as these distort distance.
 If x is a SpatVector:
 If y is missing, a distance matrix between all objects in x is computed. A distance matrix object of class "dist" is returned.
-If y is a SpatVector the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and pairwise=TRUE, the distance between each pair of objects is computed, and a vector is returned.
+If y is a SpatVector, the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and pairwise=TRUE, the distance between each pair of objects is computed, and a vector is returned.
 If x is a matrix:
-x should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If y is a also a matrix, the distance between each points in x and all points in y is computed, unless pairwise=TRUE
-If y is missing, the distance between each points in x with all other points in x is computed, unless sequential=TRUE'><meta property="og:image" content="https://rspatial.github.io/terra/logo.png"></head><body>
+x should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If y is a also a matrix, the distance between each point in x and all points in y is computed, unless pairwise=TRUE
+If y is missing, the distance between each point in x with all other points in x is computed, unless sequential=TRUE'><meta property="og:image" content="https://rspatial.github.io/terra/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -33,7 +33,7 @@ If y is missing, the distance between each points in x with all other points in 
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-72</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-74</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,16 +65,16 @@ If y is missing, the distance between each points in x with all other points in 
 
 <p>If <code>x</code> is a <b>SpatRaster</b>:</p>
 <p>If <code>y</code> is <code>missing</code> this method computes the distance, for all cells that are <code>NA</code> in SpatRaster <code>x</code> to the nearest cell that is not <code>NA</code> (or other values, see arguments "target" and "exclude").</p>
-<p>If <code>y</code> is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed (only if <code>grid=FALSE</code>).</p>
+<p>If <code>y</code> is a numeric value, the cells with that value are ignored. That is, distance to or from these cells is not computed.</p>
 <p>If <code>y</code> is a SpatVector, the distance to that SpatVector is computed for all cells, optionally after rasterization.</p>
 <p>The distance is always expressed in meter if the coordinate reference system is longitude/latitude, and in map units otherwise. Map units are typically meter, but inspect <code>crs(x)</code> if in doubt.</p>
 <p>Results are more precise, sometimes much more precise, when using longitude/latitude rather than a planar coordinate reference system, as these distort distance.</p>
 <p>If <code>x</code> is a <b>SpatVector</b>:</p>
 <p>If <code>y</code> is <code>missing</code>, a distance matrix between all objects in <code>x</code> is computed. A distance matrix object of class "dist" is returned.</p>
-<p>If <code>y</code> is a SpatVector the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and <code>pairwise=TRUE</code>, the distance between each pair of objects is computed, and a vector is returned.</p>
+<p>If <code>y</code> is a SpatVector, the geographic distance between all objects is computed (and a matrix is returned). If both sets have the same number of points, and <code>pairwise=TRUE</code>, the distance between each pair of objects is computed, and a vector is returned.</p>
 <p>If <code>x</code> is a <b>matrix</b>:</p>
-<p><code>x</code> should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If <code>y</code> is a also a matrix, the distance between each points in <code>x</code> and all points in <code>y</code> is computed, unless <code>pairwise=TRUE</code></p>
-<p>If <code>y</code> is missing, the distance between each points in <code>x</code> with all other points in <code>x</code> is computed, unless <code>sequential=TRUE</code></p>
+<p><code>x</code> should consist of two columns, the first with "x" (or longitude) and the second with "y" coordinates (or latitude). If <code>y</code> is a also a matrix, the distance between each point in <code>x</code> and all points in <code>y</code> is computed, unless <code>pairwise=TRUE</code></p>
+<p>If <code>y</code> is missing, the distance between each point in <code>x</code> with all other points in <code>x</code> is computed, unless <code>sequential=TRUE</code></p>
     </div>
 
     <div class="section level2">
@@ -105,7 +105,7 @@ If y is missing, the distance between each points in x with all other points in 
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
     <p></p>
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>SpatRaster, SpatVector, or two-column matrix with coordinates (x,y) or (lon,lat)</p></dd>
+<dd><p>SpatRaster, SpatVector, or two-column matrix with coordinates (x,y or lon,lat)</p></dd>
 
   <dt id="arg-y">y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
 <dd><p>missing, numeric, SpatVector, or two-column matrix</p></dd>
@@ -153,7 +153,7 @@ If y is missing, the distance between each points in x with all other points in 
 <dd><p>logical. If <code>TRUE</code> and <code>pairs=TRUE</code>, the distance between a pair is only included once. The distance between geometry 1 and 3 is included, but the (same) distance between 3 and 1 is not</p></dd>
 
   <dt id="arg-use-nodes">use_nodes<a class="anchor" aria-label="anchor" href="#arg-use-nodes"></a></dt>
-<dd><p>logical. If <code>TRUE</code> and the crs is longitude/latitude, the nodes (vertices) of lines or polygons are used to compute distances, instead of the lines that conntect them. This is faster, but can be less precise if the nodes are far apart</p></dd>
+<dd><p>logical. If <code>TRUE</code> and the crs is longitude/latitude, the nodes (vertices) of lines or polygons are used to compute distances, instead of the lines that connect them. This is faster, but can be less precise if the nodes are far apart</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -166,7 +166,7 @@ If y is missing, the distance between each points in x with all other points in 
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="nearby.html">nearest</a></code>, <code><a href="nearby.html">nearby</a></code></p></div>
+    <div class="dont-index"><p><code><a href="nearby.html">nearest</a></code>, <code><a href="nearby.html">nearby</a></code>, <code><a href="gridDist.html">gridDist</a></code>, <code><a href="costDist.html">costDist</a></code></p></div>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
