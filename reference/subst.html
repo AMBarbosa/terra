@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-94</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-13</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,7 @@
 <dd><p>SpatRaster</p></dd>
 
   <dt id="arg-from">from<a class="anchor" aria-label="anchor" href="#arg-from"></a></dt>
-<dd><p>numeric value(s). Normally a vector of the same length as `to`. If <code>x</code> has multiple layers, it can also be a matrix of numeric value(s) where <code>nrow(x) == length(to)</code>. In that case the output has a single layer, with values based on the combination of the values of the input layers</p></dd>
+<dd><p>numeric value(s). Normally a vector of the same length as `to`. If <code>x</code> has multiple layers, it can also be a matrix of numeric value(s) where <code>nrow(x) == length(to)</code>. In that case the output has a single layer, with values based on the combination of the values of the input layers. For single-layer replacement with numeric vectors, an optimized hash-based lookup is used. Floating point values are supported and are matched exactly.</p></dd>
 
   <dt id="arg-to">to<a class="anchor" aria-label="anchor" href="#arg-to"></a></dt>
 <dd><p>numeric value(s). Normally a vector of the same length as `from`. If <code>x</code> has a single layer, it can also be a matrix of numeric value(s) where <code>nrow(x) == length(from)</code>. In that case the output has multiple layers, one for each column in <code>to</code></p></dd>
@@ -72,6 +72,10 @@
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>SpatRaster</p>
+    </div>
+    <div class="section level2">
+    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
+    <p>Andrew Gene Brown, Robert J. Hijmans</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -100,7 +104,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Robert J. Hijmans, Márcia Barbosa, Andrew Brown.</p>
+  <p>Developed by Robert J. Hijmans, Andrew Brown, Márcia Barbosa.</p>
 </div>
 
 <div class="pkgdown-footer-right">

@@ -33,9 +33,9 @@ split(x, f, min_node_dist=10000)
 
 - min_node_dist:
 
-  postive number indicating the minimum node distance to use (in m) for
-  longitude/latitude data. To ensure this minium distance between nodes,
-  additional nodes are added as needed, to improve precision. See
+  positive number indicating the minimum node distance to use (in m) for
+  longitude/latitude data. To ensure this minimum distance between
+  nodes, additional nodes are added as needed, to improve precision. See
   [`densify`](https://rspatial.github.io/terra/reference/densify.md)
 
 ## Value
@@ -53,14 +53,14 @@ list or SpatVector
 s <- rast(system.file("ex/logo.tif", package="terra"))   
 y <- split(s, c(1,2,1))
 sds(y)
-#> class       : SpatRasterDataset 
-#> subdatasets : 2 
+#> class       : SpatRasterDataset
+#> subdatasets : 2
 #> dimensions  : 77, 101 (nrow, ncol)
-#> nlyr        : 2, 1 
+#> nlyr        : 2, 1
 #> resolution  : 1, 1  (x, y)
 #> extent      : 0, 101, 0, 77  (xmin, xmax, ymin, ymax)
-#> coord. ref. : Cartesian (Meter) 
-#> source(s)   : logo.tif 
+#> coord. ref. : Cartesian (Meter)
+#> source(s)   : logo.tif
 
 ## split attributes
 v <- vect(system.file("ex/lux.shp", package="terra"))

@@ -98,35 +98,35 @@ r <- c(r1, r2)
 s <- sqrt(r)
 # same as 
 math(r, "sqrt")
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 2  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> names       :     lyr.1, lyr.1 
-#> min values  : 0.1272139,   0.1 
-#> max values  : 0.9963790,   1.0 
+#> names       :    lyr.1, lyr.1
+#> min values  :  0.10745,   0.1
+#> max values  : 0.997541,     1
 
 round(s, 1)
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 2  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> names       : lyr.1, lyr.1 
-#> min values  :   0.1,   0.1 
-#> max values  :   1.0,   1.0 
+#> names       : lyr.1, lyr.1
+#> min values  :   0.1,   0.1
+#> max values  :     1,     1
 
 cumsum(r)
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 2  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> names       :      lyr.1,      lyr.1 
-#> min values  : 0.01618339, 0.02618339 
-#> max values  : 0.99277109, 1.84138276 
+#> names       :    lyr.1,    lyr.1
+#> min values  : 0.011546, 0.071053
+#> max values  : 0.995088, 1.903872
 ```

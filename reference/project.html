@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-94</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-13</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,7 +75,7 @@
 <p><code>bilinear</code>: bilinear interpolation (3x3 cell window). This is used by default if the first layer of <code>x</code> is not categorical</p>
 <p><code>mean</code>:  This can be a good choice with continuous variables if the output cells overlap with multiple input cells.</p>
 <p><code>near</code>: nearest neighbor. This is used by default if the first layer of <code>x</code> is categorical. This method is not a good choice for continuous values.</p>
-<p><code>mode</code>: The modal value. This can be a good choice for categrical rasters, if the output cells overlap with multiple input cells.</p>
+<p><code>mode</code>: The modal value. This can be a good choice for categorical rasters, if the output cells overlap with multiple input cells.</p>
 <p><code>cubic</code>: cubic interpolation (5x5 cell window).</p>
 <p><code>cubicspline</code>: cubic B-spline interpolation. (5x5 cell window).</p>
 <p><code>lanczos</code>: Lanczos windowed sinc resampling. (7x7 cell window).</p>
@@ -147,6 +147,7 @@
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co">## SpatRaster</span></span></span>
+<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="rast.html">rast</a></span><span class="op">(</span>ncols<span class="op">=</span><span class="fl">40</span>, nrows<span class="op">=</span><span class="fl">40</span>, xmin<span class="op">=</span><span class="op">-</span><span class="fl">110</span>, xmax<span class="op">=</span><span class="op">-</span><span class="fl">90</span>, ymin<span class="op">=</span><span class="fl">40</span>, ymax<span class="op">=</span><span class="fl">60</span>, </span></span>
 <span class="r-in"><span>          crs<span class="op">=</span><span class="st">"+proj=longlat +datum=WGS84"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="values.html">values</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="dimensions.html">ncell</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span></span>
@@ -159,47 +160,11 @@
 <span class="r-in"><span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"ex/lux.shp"</span>, package<span class="op">=</span><span class="st">"terra"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">v</span> <span class="op">&lt;-</span> <span class="fu"><a href="vect.html">vect</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="crs.html">crs</a></span><span class="op">(</span><span class="va">v</span>, proj<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "+proj=longlat +datum=WGS84 +no_defs"</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="crs.html">crs</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> GEOGCRS["WGS 84",</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     DATUM["World Geodetic System 1984",</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         ELLIPSOID["WGS 84",6378137,298.257223563,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             LENGTHUNIT["metre",1]]],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     PRIMEM["Greenwich",0,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         ANGLEUNIT["degree",0.0174532925199433]],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     CS[ellipsoidal,2],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         AXIS["geodetic latitude (Lat)",north,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             ORDER[1],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             ANGLEUNIT["degree",0.0174532925199433]],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         AXIS["geodetic longitude (Lon)",east,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             ORDER[2],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             ANGLEUNIT["degree",0.0174532925199433]],</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     ID["EPSG",4326]] </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">project</span><span class="op">(</span><span class="va">v</span>, <span class="st">"+proj=moll"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  class       : SpatVector </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  geometry    : polygons </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  dimensions  : 12, 6  (geometries, attributes)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  extent      : 437476.4, 497805.3, 5815524, 5892478  (xmin, xmax, ymin, ymax)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  coord. ref. : +proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  names       :  ID_1   NAME_1  ID_2   NAME_2  AREA       POP</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  type        : &lt;num&gt;    &lt;chr&gt; &lt;num&gt;    &lt;chr&gt; &lt;num&gt;     &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  values      :     1 Diekirch     1 Clervaux   312 1.808e+04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                    1 Diekirch     2 Diekirch   218 3.254e+04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                    1 Diekirch     3  Redange   259 1.866e+04</span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">project</span><span class="op">(</span><span class="va">v</span>, <span class="st">"EPSG:2169"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  class       : SpatVector </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  geometry    : polygons </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  dimensions  : 12, 6  (geometries, attributes)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  extent      : 49540.31, 105922, 57009.53, 138631.1  (xmin, xmax, ymin, ymax)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  coord. ref. : LUREF / Luxembourg TM (EPSG:2169) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  names       :  ID_1   NAME_1  ID_2   NAME_2  AREA       POP</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  type        : &lt;num&gt;    &lt;chr&gt; &lt;num&gt;    &lt;chr&gt; &lt;num&gt;     &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  values      :     1 Diekirch     1 Clervaux   312 1.808e+04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                    1 Diekirch     2 Diekirch   218 3.254e+04</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                    1 Diekirch     3  Redange   259 1.866e+04</span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -207,7 +172,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Robert J. Hijmans, Márcia Barbosa, Andrew Brown.</p>
+  <p>Developed by Robert J. Hijmans, Andrew Brown, Márcia Barbosa.</p>
 </div>
 
 <div class="pkgdown-footer-right">

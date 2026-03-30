@@ -13,7 +13,7 @@ You can write multiple rasters (variables) that are two (x, y), three
 
 See [`depth`](https://rspatial.github.io/terra/reference/depth.md) and
 [`time`](https://rspatial.github.io/terra/reference/time.md) for
-specifying the axes of the thrid and/or fourth dimension(s).
+specifying the axes of the third and/or fourth dimension(s).
 
 ## Usage
 
@@ -150,34 +150,34 @@ x <- writeCDF(s, filename = fname, overwrite=TRUE)
 #> Warning: GDAL Message 1: dimension #1 (time) is not a Time dimension.
 #> Warning: GDAL Message 1: dimension #0 (height) is not a Time dimension.
 x[1]
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 5, 5, 4  (nrow, ncol, nlyr)
 #> resolution  : 72, 36  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
-#> source      : file238669433088.nc:TH 
-#> varname     : TH 
-#> names       : TH_angle=0_1, TH_angle=2_1, TH_angle=0_2, TH_angle=2_2 
-#> unit        : - 
-#> depth       : 0 to 2 (angle: 2 steps) 
-#> time (days) : 2012-12-13 to 2012-12-14 (2 steps) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
+#> source      : file24386be3f152.nc:TH
+#> varname     : TH
+#> names       : TH_angle=0_1, TH_angle=2_1, TH_angle=0_2, TH_angle=2_2
+#> unit        : -
+#> depth       : 0 to 2 (angle: 2 steps)
+#> time (days) : 2012-12-13 to 2012-12-14 (2 steps)
 time(x[1])
 #> [1] "2012-12-13" "2012-12-13" "2012-12-14" "2012-12-14"
 depth(x[1])
 #> [1] 0 2 0 2
 
 x[2]
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 5, 5, 6  (nrow, ncol, nlyr)
 #> resolution  : 72, 36  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
-#> source      : file238669433088.nc:DBZH 
-#> varname     : DBZH 
-#> names       : DBZH_~=10_1, DBZH_~=10_2, DBZH_~=20_1, DBZH_~=20_2, DBZH_~=30_1, DBZH_~=30_2 
-#> unit        : Pa 
-#> depth       : 10 to 30 (height [cm]: 3 steps) 
-#> time (days) : 2012-12-13 to 2012-12-14 (2 steps) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
+#> source      : file24386be3f152.nc:DBZH
+#> varname     : DBZH
+#> names       : DBZH_~=10_1, DBZH_~=10_2, DBZH_~=20_1, DBZH_~=20_2, DBZH_~=30_1, DBZH_~=30_2
+#> unit        : Pa
+#> depth       : 10 to 30 (height [cm]: 3 steps)
+#> time (days) : 2012-12-13 to 2012-12-14 (2 steps)
 time(x[2])
 #> [1] "2012-12-13" "2012-12-14" "2012-12-13" "2012-12-14" "2012-12-13"
 #> [6] "2012-12-14"

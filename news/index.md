@@ -1,18 +1,125 @@
 # Changelog
 
-## version 1.8-94
+## version 1.9-13
 
 ### bug fixes
 
 ### enhancements
 
+- `compareGeom` gets argument “tolerance” to overwrite the default that
+  can be set with `terraOptions`.
+  [\#2056](https://github.com/rspatial/terra/issues/2056) by R. Kyle
+  Bocinsky
+- `vect<data.frame>` now warns when it guesses the geom variables and/or
+  the lon/lat CRS
+  [\#1985](https://github.com/rspatial/terra/issues/1985) by Márcia
+  Barbosa
+- consistent warnings about missing CRS in distance functions.
+  [\#1924](https://github.com/rspatial/terra/issues/1924) by Márcia
+  Barbosa
+
+## version 1.9-11
+
+CRAN release: 2026-03-26
+
+Released 2026-03-26
+
+### bug fixes
+
+- `subst` and some cases of `classify`, did not recycle properly
+  [\#2046](https://github.com/rspatial/terra/issues/2046) by Nuno
+  Teixeira and [\#2052](https://github.com/rspatial/terra/issues/2052)
+  by Jérôme Guélat
+- better reading of gpkg files with unclear geometry and NULL geoms
+  [\#2051](https://github.com/rspatial/terra/issues/2051) by Duy Nguyen
+- `ifel` ignored NA values in some circumstances [SO
+  79905693](https://stackoverflow.com/questions/79905693) by Sean
+  McKenzie
+- `spatSample` failed if checkerboard sampling if a stratum was empty
+  [\#2060](https://github.com/rspatial/terra/issues/2060) by Tyler Smith
+
+### enhancements
+
+- `plot<SpatVector>` has new argument “fill_range”
+- `extract` gains argument “wide=FALSE” that can be used when
+  fun=“table” [2053](https://github.com/rspatial/terra/issues/2053) by
+  Jérôme Guélat
+
+## version 1.9-1
+
+CRAN release: 2026-03-08
+
+Released 2026-03-07
+
+### bug fixes
+
+- `patches` newly implemented by Andrew Gene Brown
+  [\#2006](https://github.com/rspatial/terra/pull/2006) fixing
+  [\#1758](https://github.com/rspatial/terra/issues/1758)
+- `project` did not apply the scale/offset values
+  [\#2014](https://github.com/rspatial/terra/issues/2014) by Edgar
+  Castro
+- `show<SpatRaster>` did not work properly for categorical variables if
+  the min/max values were not specified in the file
+  [\#2023](https://github.com/rspatial/terra/issues/2023) by Kodi Arfer
+- `rast(md=TRUE)` now recognizes non standard calendars
+  [\#2019](https://github.com/rspatial/terra/issues/2019) by Heyang;
+  fixed by Yuxuan Xie with
+  [\#2024](https://github.com/rspatial/terra/pull/2024)
+- `values<SpatVector>` lost integer values \> .Machine\$integer.max.
+  Variables with such values are no longer coerced to integer.
+  [\#2030](https://github.com/rspatial/terra/issues/2030) by Steffen
+  Ehrmann
+- `extract<SpatRaster,SpatVector>` with arguments fun=“table” and
+  weights=FALSE did not work
+  [\#2029](https://github.com/rspatial/terra/issues/2029) by
+  volcanicpine
+- `query<SpatVectorProxy>` failed with a start \> 100000
+  [\#2038](https://github.com/rspatial/terra/issues/2038) by Paul Smith
+
+### enhancements
+
+- significant speed improvements for classify, subst (one-to-one value
+  replacement), catalyze (one-to-many value replacement), unique (better
+  deduplication), and freq, crosstab, table_utils (unified approach to
+  counting) by Andrew Gene Brown
+  [\#2012](https://github.com/rspatial/terra/pull/2012)
+- terra now handles the sf defined “POLYGON FULL” not-so-WKT
+  [\#2013](https://github.com/rspatial/terra/issues/2013) by Alexandre
+  Courtiol
+- Language errors in the documentation fixed by Yuxuan Xie
+  [\#2021](https://github.com/rspatial/terra/pull/2021) and by Krzysztof
+  Dyba [\#2020](https://github.com/rspatial/terra/pull/2020)
+- fixed documentation for “direction” parameter in `flip<SpatRaster>`
+  [\#2016](https://github.com/rspatial/terra/pull/2016) by Jesse
+  Anderson
+- “pixel count” in a raster/value attribute table is now recognized as
+  equivalent to “count” (and not considered a categorical variable)
+  [\#2023](https://github.com/rspatial/terra/issues/2023) by Kodi Arfer
+- `lines<leaflet>` gains argument “popup”
+  [\#2018](https://github.com/rspatial/terra/issues/2018) by Mary Fisher
+- `as.lines<matrix>` gains argument “segments”
+  [\#2008](https://github.com/rspatial/terra/issues/2008) by Márcia
+  Barbosa
+- `freq<SpatRaster>` with argument zones as a SpatRaster now returns the
+  zone values instead of the index
+  [\#2033](https://github.com/rspatial/terra/issues/2033) by Thomas
+  Estabrook
+- `as.lines<SpatRaster>` gained argument “na.rm=FALSE”
+  [\#2041](https://github.com/rspatial/terra/issues/2041) by Márcia
+  Barbosa
+
 ### new
+
+- `animate<SpatVector>` method by Márcia Barbosa
+  [\#2007](https://github.com/rspatial/terra/issues/2007)
+- `agitate<SpatVector>` method to jitter a SpatVector of points
 
 ## version 1.8-93
 
 CRAN release: 2026-01-12
 
-Released 2025-01-12
+Released 2026-01-12
 
 ### bug fixes
 
@@ -33,10 +140,10 @@ Released 2025-01-12
   [\#1992](https://github.com/rspatial/terra/issues/1992) by Wencheng
   Lau-Medrano
 - `polys` ignored argument “border”
-  [\#1997](https://github.com/rspatial/terra/issues/1989) by Márcia
+  [\#1997](https://github.com/rspatial/terra/issues/1997) by Márcia
   Barbosa
 - `describe` works with linux paths starting with a tilde
-  [2003](https://github.com/rspatial/terra/issues/2003) by David Moles
+  [\#2003](https://github.com/rspatial/terra/issues/2003) by David Moles
 - `zonal<SpatRaster,SpatRaster>` failed with arguments fun=‘sd’, wide=F.
   [\#2004](https://github.com/rspatial/terra/issues/2004) by Thomas
   Estabrook
@@ -45,7 +152,7 @@ Released 2025-01-12
 
 - `vect<data.frame>` has improved guessing of variable names (if
   argument geom is not supplied) and crs (if that argument is not
-  supplied, and gets argument “quiet=TRUE” that can be set to false to
+  supplied), and gets argument “quiet=TRUE” that can be set to false to
   get warnings if either of these is guessed.
   [\#1984](https://github.com/rspatial/terra/issues/1984) and
   [\#1985](https://github.com/rspatial/terra/issues/1985) by Márcia
@@ -58,7 +165,7 @@ Released 2025-01-12
   [\#1987](https://github.com/rspatial/terra/issues/1987) by
   WillhKessler
 - `$<-<SpatVector>` now gives an error if the replacement is longer than
-  the data, and a warning if recylcing of a shorter replacement is
+  the data, and a warning if recycling of a shorter replacement is
   imperfect. [\#1980](https://github.com/rspatial/terra/issues/1980) by
   Margaret Bolton
 - `cartogram` gets new arguments “inside” and “exp” and better scaling
@@ -71,7 +178,7 @@ Released 2025-01-12
   [\#1994](https://github.com/rspatial/terra/issues/1994) by Márcia
   Barbosa
 - `plet<SpatVector>` and `polys<leaflet>` gain argument “lty”
-  [\#1997](https://github.com/rspatial/terra/issues/1989) by Márcia
+  [\#1997](https://github.com/rspatial/terra/issues/1997) by Márcia
   Barbosa
 
 ### new
@@ -107,7 +214,7 @@ Released 2025-11-28
 - `stretch` crashed R with very large rasters
   [\#1962](https://github.com/rspatial/terra/issues/1962) by Agustin
   Lobo
-- `focalReg` did not handle of custom functions with a weights argument
+- `focalReg` did not handle custom functions with a weights argument
   [\#1965](https://github.com/rspatial/terra/issues/1965) by Pedro
   Tarroso
 
@@ -226,7 +333,7 @@ Released 2025-09-27
 - `project(mask=TRUE)` could fail with high-resolution global rasters
   because of date-line flipping [SO
   79708536](https://stackoverflow.com/q/79708536/635245) by Patrick
-- `plot(pax=list(mgp=c(1,1,2))` now sets mgp seperately for horizontal
+- `plot(pax=list(mgp=c(1,1,2))` now sets mgp separately for horizontal
   and vertical axes
   [\#1873](https://github.com/rspatial/terra/issues/1873) by Hu shiyu
 - `coltab(x, ..., layer=1)<-` argument layer did not work for layer
@@ -311,8 +418,8 @@ Released 2025-07-18
   [\#1858](https://github.com/rspatial/terra/issues/1868) by Tyler
   Hoecker
 - numerical layer indexing in extract was broken
-  [\#1862](https://github.com/rspatial/terra/issues/1862) identified and
-  fixed \[#1863\] (<https://github.com/rspatial/terra/pull/1863>) by
+  [\#1862](https://github.com/rspatial/terra/issues/1862); identified
+  and fixed [\#1863](https://github.com/rspatial/terra/pull/1863) by
   Finn Lindgren
 
 ### enhancements
@@ -325,7 +432,7 @@ Released 2025-07-18
   [\#1861](https://github.com/rspatial/terra/issues/1861) by Andrea
   Titolo
 - `sprc<character>` now also works for a single datasource raster
-  [\#1860](https://github.com/rspatial/terra/issues/1860) by Anrew Gene
+  [\#1860](https://github.com/rspatial/terra/issues/1860) by Andrew Gene
   Brown
 
 ## version 1.8-54
@@ -351,8 +458,8 @@ Released 2025-06-01
 - `==<SpatRaster>` with multiple layers and categorical comparison
   failed [\#1836](https://github.com/rspatial/terra/issues/1836) by
   Andrew Gene Brown
-- `wrteCDF` failed when writing tags with illegal characters such as “{”
-  or “(”, [\#1811](https://github.com/rspatial/terra/issues/1811) by
+- `writeCDF` failed when writing tags with illegal characters such as
+  “{” or “(”, [\#1811](https://github.com/rspatial/terra/issues/1811) by
   Catalin Sorin Covaci
 - `freq` failed for an empty SpatRaster
   [\#1839](https://github.com/rspatial/terra/issues/1839) by Alex Ilich
@@ -421,7 +528,8 @@ Released 2025-05-09
 ### enhancements
 
 - `init` with a matrix argument now keeps the same row/col values
-  [\#1801](https://github.com/rspatial/terra/issues/1801) Jakub Nowosad
+  [\#1801](https://github.com/rspatial/terra/issues/1801) by Jakub
+  Nowosad
 - `rasterize` now checks for very large numbers and switches to FLT8S if
   detected. [\#1797](https://github.com/rspatial/terra/issues/1797) by
   Evan Muise
@@ -819,7 +927,7 @@ Released 2024-12-12
 
 ### new
 
-- `patches` with option `valus=TRUE` can now distinguish regions based
+- `patches` with option `values=TRUE` can now distinguish regions based
   on their cell values (instead of only NA vs not-NA)
   [\#495](https://github.com/rspatial/terra/issues/495) by Jakub Nowosad
   and [\#1632](https://github.com/rspatial/terra/issues/1632) by Agustin
@@ -831,7 +939,7 @@ Released 2024-12-12
 - `metags` for layers (bands) of SpatRaster are now saved to and read
   from GTiff files
   [\#1071](https://github.com/rspatial/terra/issues/1071) by Mike Koontz
-- `global` has new effcient functions “anyNA” and “anynotNA”
+- `global` has new efficient functions “anyNA” and “anynotNA”
   [\#1540](https://github.com/rspatial/terra/issues/1540) by Kevin J
   Wolz
 - `wrap`, `saveRDS` and `serialize` for SpatExtent.

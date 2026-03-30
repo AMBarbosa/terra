@@ -16,7 +16,7 @@ the inverse of `is.na`, and
 to detect cells with missing value across layers.
 
 The `compare` and `logic` methods implement these operators in a method
-that can return `NA` istead of `FALSE` and allows for setting an output
+that can return `NA` instead of `FALSE` and allows for setting an output
 filename.
 
 The terra package does not distinguish between `NA` (not available) and
@@ -56,7 +56,7 @@ logic(x, oper, falseNA=FALSE, filename="", overwrite=FALSE, ...)
 
   character. Operator name. For `compare` this can be one of
   `"==", "!=", ">", "<", ">=", "<="` and for `logic` it can be one of
-  `"!", "is.na", "not.na", "allNA", "anyNA", "noneNA", "is.infinite", "is.finite", "iSTRUE", "isFALSE"`
+  `"!", "is.na", "not.na", "allNA", "anyNA", "noneNA", "is.infinite", "is.finite", "isTRUE", "isFALSE"`
 
 - falseNA:
 
@@ -100,43 +100,43 @@ values(r2) <- 1:ncell(r2) / ncell(r2)
 
 x <- is.na(r1)
 !x
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 1  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> name        : lyr.1 
-#> min value   : FALSE 
-#> max value   :  TRUE 
+#> name        : lyr.1
+#> min value   :     0
+#> max value   :     1
 r1 == r2 
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 1  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> name        : lyr.1 
-#> min value   : FALSE 
-#> max value   : FALSE 
+#> name        : lyr.1
+#> min value   :     0
+#> max value   :     0
 compare(r1, r2, "==")
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 1  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> name        : lyr.1 
-#> min value   : FALSE 
-#> max value   : FALSE 
+#> name        : lyr.1
+#> min value   :     0
+#> max value   :     0
 compare(r1, r2, "==", TRUE)
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 10, 10, 1  (nrow, ncol, nlyr)
 #> resolution  : 36, 18  (x, y)
 #> extent      : -180, 180, -90, 90  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84) 
+#> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 #> source(s)   : memory
-#> name        : lyr.1 
-#> min value   :  TRUE 
-#> max value   :  TRUE 
+#> name        : lyr.1
+#> min value   :    ? 
+#> max value   :    ? 
 ```

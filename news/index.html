@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-94</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-13</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,20 +34,92 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="1.8-94" id="version-18-94">version 1.8-94<a class="anchor" aria-label="anchor" href="#version-18-94"></a></h2>
+<h2 class="pkg-version" data-toc-text="1.9-13" id="version-19-13">version 1.9-13<a class="anchor" aria-label="anchor" href="#version-19-13"></a></h2>
 <div class="section level3">
-<h3 id="bug-fixes-1-8-94">bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-8-94"></a></h3>
+<h3 id="bug-fixes-1-9-13">bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-9-13"></a></h3>
 </div>
 <div class="section level3">
-<h3 id="enhancements-1-8-94">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-8-94"></a></h3>
+<h3 id="enhancements-1-9-13">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-9-13"></a></h3>
+<ul><li>
+<code>compareGeom</code> gets argument “tolerance” to overwrite the default that can be set with <code>terraOptions</code>. <a href="https://github.com/rspatial/terra/issues/2056" class="external-link">#2056</a> by R. Kyle Bocinsky</li>
+<li>
+<code>vect&lt;data.frame&gt;</code> now warns when it guesses the geom variables and/or the lon/lat CRS <a href="https://github.com/rspatial/terra/issues/1985" class="external-link">#1985</a> by Márcia Barbosa</li>
+<li>consistent warnings about missing CRS in distance functions. <a href="https://github.com/rspatial/terra/issues/1924" class="external-link">#1924</a> by Márcia Barbosa</li>
+</ul></div>
 </div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.9-11" id="version-19-11">version 1.9-11<a class="anchor" aria-label="anchor" href="#version-19-11"></a></h2><p class="text-muted">CRAN release: 2026-03-26</p>
+<p>Released 2026-03-26</p>
 <div class="section level3">
-<h3 id="new-1-8-94">new<a class="anchor" aria-label="anchor" href="#new-1-8-94"></a></h3>
+<h3 id="bug-fixes-1-9-11">bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-9-11"></a></h3>
+<ul><li>
+<code>subst</code> and some cases of <code>classify</code>, did not recycle properly <a href="https://github.com/rspatial/terra/issues/2046" class="external-link">#2046</a> by Nuno Teixeira and <a href="https://github.com/rspatial/terra/issues/2052" class="external-link">#2052</a> by Jérôme Guélat</li>
+<li>better reading of gpkg files with unclear geometry and NULL geoms <a href="https://github.com/rspatial/terra/issues/2051" class="external-link">#2051</a> by Duy Nguyen</li>
+<li>
+<code>ifel</code> ignored NA values in some circumstances <a href="https://stackoverflow.com/questions/79905693" class="external-link">SO 79905693</a> by Sean McKenzie</li>
+<li>
+<code>spatSample</code> failed if checkerboard sampling if a stratum was empty <a href="https://github.com/rspatial/terra/issues/2060" class="external-link">#2060</a> by Tyler Smith</li>
+</ul></div>
+<div class="section level3">
+<h3 id="enhancements-1-9-11">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-9-11"></a></h3>
+<ul><li>
+<code>plot&lt;SpatVector&gt;</code> has new argument “fill_range”</li>
+<li>
+<code>extract</code> gains argument “wide=FALSE” that can be used when fun=“table” <a href="https://github.com/rspatial/terra/issues/2053" class="external-link">2053</a> by Jérôme Guélat</li>
+</ul></div>
 </div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.9-1" id="version-19-1">version 1.9-1<a class="anchor" aria-label="anchor" href="#version-19-1"></a></h2><p class="text-muted">CRAN release: 2026-03-08</p>
+<p>Released 2026-03-07</p>
+<div class="section level3">
+<h3 id="bug-fixes-1-9-1">bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-9-1"></a></h3>
+<ul><li>
+<code>patches</code> newly implemented by Andrew Gene Brown <a href="https://github.com/rspatial/terra/pull/2006" class="external-link">#2006</a> fixing <a href="https://github.com/rspatial/terra/issues/1758" class="external-link">#1758</a>
+</li>
+<li>
+<code>project</code> did not apply the scale/offset values <a href="https://github.com/rspatial/terra/issues/2014" class="external-link">#2014</a> by Edgar Castro</li>
+<li>
+<code>show&lt;SpatRaster&gt;</code> did not work properly for categorical variables if the min/max values were not specified in the file <a href="https://github.com/rspatial/terra/issues/2023" class="external-link">#2023</a> by Kodi Arfer</li>
+<li>
+<code>rast(md=TRUE)</code> now recognizes non standard calendars <a href="https://github.com/rspatial/terra/issues/2019" class="external-link">#2019</a> by Heyang; fixed by Yuxuan Xie with <a href="https://github.com/rspatial/terra/pull/2024" class="external-link">#2024</a>
+</li>
+<li>
+<code>values&lt;SpatVector&gt;</code> lost integer values &gt; .Machine$integer.max. Variables with such values are no longer coerced to integer. <a href="https://github.com/rspatial/terra/issues/2030" class="external-link">#2030</a> by Steffen Ehrmann</li>
+<li>
+<code>extract&lt;SpatRaster,SpatVector&gt;</code> with arguments fun=“table” and weights=FALSE did not work <a href="https://github.com/rspatial/terra/issues/2029" class="external-link">#2029</a> by volcanicpine</li>
+<li>
+<code>query&lt;SpatVectorProxy&gt;</code> failed with a start &gt; 100000 <a href="https://github.com/rspatial/terra/issues/2038" class="external-link">#2038</a> by Paul Smith</li>
+</ul></div>
+<div class="section level3">
+<h3 id="enhancements-1-9-1">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-9-1"></a></h3>
+<ul><li>significant speed improvements for classify, subst (one-to-one value replacement), catalyze (one-to-many value replacement), unique (better deduplication), and freq, crosstab, table_utils (unified approach to counting) by Andrew Gene Brown <a href="https://github.com/rspatial/terra/pull/2012" class="external-link">#2012</a>
+</li>
+<li>terra now handles the sf defined “POLYGON FULL” not-so-WKT <a href="https://github.com/rspatial/terra/issues/2013" class="external-link">#2013</a> by Alexandre Courtiol</li>
+<li>Language errors in the documentation fixed by Yuxuan Xie <a href="https://github.com/rspatial/terra/pull/2021" class="external-link">#2021</a> and by Krzysztof Dyba <a href="https://github.com/rspatial/terra/pull/2020" class="external-link">#2020</a>
+</li>
+<li>fixed documentation for “direction” parameter in <code>flip&lt;SpatRaster&gt;</code> <a href="https://github.com/rspatial/terra/pull/2016" class="external-link">#2016</a> by Jesse Anderson</li>
+<li>“pixel count” in a raster/value attribute table is now recognized as equivalent to “count” (and not considered a categorical variable) <a href="https://github.com/rspatial/terra/issues/2023" class="external-link">#2023</a> by Kodi Arfer</li>
+<li>
+<code>lines&lt;leaflet&gt;</code> gains argument “popup” <a href="https://github.com/rspatial/terra/issues/2018" class="external-link">#2018</a> by Mary Fisher</li>
+<li>
+<code>as.lines&lt;matrix&gt;</code> gains argument “segments” <a href="https://github.com/rspatial/terra/issues/2008" class="external-link">#2008</a> by Márcia Barbosa</li>
+<li>
+<code>freq&lt;SpatRaster&gt;</code> with argument zones as a SpatRaster now returns the zone values instead of the index <a href="https://github.com/rspatial/terra/issues/2033" class="external-link">#2033</a> by Thomas Estabrook</li>
+<li>
+<code>as.lines&lt;SpatRaster&gt;</code> gained argument “na.rm=FALSE” <a href="https://github.com/rspatial/terra/issues/2041" class="external-link">#2041</a> by Márcia Barbosa</li>
+</ul></div>
+<div class="section level3">
+<h3 id="new-1-9-1">new<a class="anchor" aria-label="anchor" href="#new-1-9-1"></a></h3>
+<ul><li>
+<code>animate&lt;SpatVector&gt;</code> method by Márcia Barbosa <a href="https://github.com/rspatial/terra/issues/2007" class="external-link">#2007</a>
+</li>
+<li>
+<code>agitate&lt;SpatVector&gt;</code> method to jitter a SpatVector of points</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.8-93" id="version-18-93">version 1.8-93<a class="anchor" aria-label="anchor" href="#version-18-93"></a></h2><p class="text-muted">CRAN release: 2026-01-12</p>
-<p>Released 2025-01-12</p>
+<p>Released 2026-01-12</p>
 <div class="section level3">
 <h3 id="bug-fixes-1-8-93">bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-8-93"></a></h3>
 <ul><li>
@@ -59,22 +131,22 @@
 <li>
 <code>distance&lt;matrix,missing&gt;</code> was not working <a href="https://github.com/rspatial/terra/issues/1992" class="external-link">#1992</a> by Wencheng Lau-Medrano</li>
 <li>
-<code>polys</code> ignored argument “border” <a href="https://github.com/rspatial/terra/issues/1989" class="external-link">#1997</a> by Márcia Barbosa</li>
+<code>polys</code> ignored argument “border” <a href="https://github.com/rspatial/terra/issues/1997" class="external-link">#1997</a> by Márcia Barbosa</li>
 <li>
-<code>describe</code> works with linux paths starting with a tilde <a href="https://github.com/rspatial/terra/issues/2003" class="external-link">2003</a> by David Moles</li>
+<code>describe</code> works with linux paths starting with a tilde <a href="https://github.com/rspatial/terra/issues/2003" class="external-link">#2003</a> by David Moles</li>
 <li>
 <code>zonal&lt;SpatRaster,SpatRaster&gt;</code> failed with arguments fun=‘sd’, wide=F. <a href="https://github.com/rspatial/terra/issues/2004" class="external-link">#2004</a> by Thomas Estabrook</li>
 </ul></div>
 <div class="section level3">
 <h3 id="enhancements-1-8-93">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-8-93"></a></h3>
 <ul><li>
-<code>vect&lt;data.frame&gt;</code> has improved guessing of variable names (if argument geom is not supplied) and crs (if that argument is not supplied, and gets argument “quiet=TRUE” that can be set to false to get warnings if either of these is guessed. <a href="https://github.com/rspatial/terra/issues/1984" class="external-link">#1984</a> and <a href="https://github.com/rspatial/terra/issues/1985" class="external-link">#1985</a> by Márcia Barbosa</li>
+<code>vect&lt;data.frame&gt;</code> has improved guessing of variable names (if argument geom is not supplied) and crs (if that argument is not supplied), and gets argument “quiet=TRUE” that can be set to false to get warnings if either of these is guessed. <a href="https://github.com/rspatial/terra/issues/1984" class="external-link">#1984</a> and <a href="https://github.com/rspatial/terra/issues/1985" class="external-link">#1985</a> by Márcia Barbosa</li>
 <li>
 <code>extract&lt;SpatVector&gt;</code> is now less memory hungry when using argument layers <a href="https://github.com/rspatial/terra/issues/1983" class="external-link">#1983</a> by Kodi Arfer</li>
 <li>
 <code>split&lt;SpatVector&gt;</code> now behaves like the data.frame method when using multiple split variables <a href="https://github.com/rspatial/terra/issues/1987" class="external-link">#1987</a> by WillhKessler</li>
 <li>
-<code>$&lt;-&lt;SpatVector&gt;</code> now gives an error if the replacement is longer than the data, and a warning if recylcing of a shorter replacement is imperfect. <a href="https://github.com/rspatial/terra/issues/1980" class="external-link">#1980</a> by Margaret Bolton</li>
+<code>$&lt;-&lt;SpatVector&gt;</code> now gives an error if the replacement is longer than the data, and a warning if recycling of a shorter replacement is imperfect. <a href="https://github.com/rspatial/terra/issues/1980" class="external-link">#1980</a> by Margaret Bolton</li>
 <li>
 <code>cartogram</code> gets new arguments “inside” and “exp” and better scaling <a href="https://github.com/rspatial/terra/issues/1982" class="external-link">#1982</a> by Márcia Barbosa</li>
 <li>
@@ -82,7 +154,7 @@
 <li>
 <code>vect&lt;character&gt;</code> now handles MultiSurface geometries (as polygons) <a href="https://github.com/rspatial/terra/issues/1994" class="external-link">#1994</a> by Márcia Barbosa</li>
 <li>
-<code>plet&lt;SpatVector&gt;</code> and <code>polys&lt;leaflet&gt;</code> gain argument “lty” <a href="https://github.com/rspatial/terra/issues/1989" class="external-link">#1997</a> by Márcia Barbosa</li>
+<code>plet&lt;SpatVector&gt;</code> and <code>polys&lt;leaflet&gt;</code> gain argument “lty” <a href="https://github.com/rspatial/terra/issues/1997" class="external-link">#1997</a> by Márcia Barbosa</li>
 </ul></div>
 <div class="section level3">
 <h3 id="new-1-8-93">new<a class="anchor" aria-label="anchor" href="#new-1-8-93"></a></h3>
@@ -109,7 +181,7 @@
 <li>
 <code>stretch</code> crashed R with very large rasters <a href="https://github.com/rspatial/terra/issues/1962" class="external-link">#1962</a> by Agustin Lobo</li>
 <li>
-<code>focalReg</code> did not handle of custom functions with a weights argument <a href="https://github.com/rspatial/terra/issues/1965" class="external-link">#1965</a> by Pedro Tarroso</li>
+<code>focalReg</code> did not handle custom functions with a weights argument <a href="https://github.com/rspatial/terra/issues/1965" class="external-link">#1965</a> by Pedro Tarroso</li>
 </ul></div>
 <div class="section level3">
 <h3 id="enhancements-1-8-87">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-8-87"></a></h3>
@@ -191,7 +263,7 @@
 <ul><li>
 <code>project(mask=TRUE)</code> could fail with high-resolution global rasters because of date-line flipping <a href="https://stackoverflow.com/q/79708536/635245" class="external-link">SO 79708536</a> by Patrick</li>
 <li>
-<code>plot(pax=list(mgp=c(1,1,2))</code> now sets mgp seperately for horizontal and vertical axes <a href="https://github.com/rspatial/terra/issues/1873" class="external-link">#1873</a> by Hu shiyu</li>
+<code>plot(pax=list(mgp=c(1,1,2))</code> now sets mgp separately for horizontal and vertical axes <a href="https://github.com/rspatial/terra/issues/1873" class="external-link">#1873</a> by Hu shiyu</li>
 <li>
 <code>coltab(x, ..., layer=1)&lt;-</code> argument layer did not work for layer names <a href="https://github.com/rspatial/terra/issues/1879" class="external-link">#1879</a> by Alex Ilich</li>
 <li>
@@ -239,7 +311,7 @@
 <code>nearest</code> did not work well for lonlat polygons <a href="https://github.com/rspatial/terra/issues/1869" class="external-link">#1869</a> and with methods “cosine” and “haversine” by Alexandre Courtiol</li>
 <li>polygon union failure when symdif returns lines <a href="https://github.com/rspatial/terra/issues/1866" class="external-link">#1866</a> by Reed Humphrey</li>
 <li>where.max did not work properly when processing large files in chunks. <a href="https://github.com/rspatial/terra/issues/1868" class="external-link">#1858</a> by Tyler Hoecker</li>
-<li>numerical layer indexing in extract was broken <a href="https://github.com/rspatial/terra/issues/1862" class="external-link">#1862</a> identified and fixed [#1863] (<a href="https://github.com/rspatial/terra/pull/1863" class="external-link uri">https://github.com/rspatial/terra/pull/1863</a>) by Finn Lindgren</li>
+<li>numerical layer indexing in extract was broken <a href="https://github.com/rspatial/terra/issues/1862" class="external-link">#1862</a>; identified and fixed <a href="https://github.com/rspatial/terra/pull/1863" class="external-link">#1863</a> by Finn Lindgren</li>
 </ul></div>
 <div class="section level3">
 <h3 id="enhancements-1-8-60">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-8-60"></a></h3>
@@ -248,7 +320,7 @@
 <li>
 <code>plot</code> with a continuous legend has new <code>plg</code> parameter “format” so that you can use scientific notation <a href="https://github.com/rspatial/terra/issues/1861" class="external-link">#1861</a> by Andrea Titolo</li>
 <li>
-<code>sprc&lt;character&gt;</code> now also works for a single datasource raster <a href="https://github.com/rspatial/terra/issues/1860" class="external-link">#1860</a> by Anrew Gene Brown</li>
+<code>sprc&lt;character&gt;</code> now also works for a single datasource raster <a href="https://github.com/rspatial/terra/issues/1860" class="external-link">#1860</a> by Andrew Gene Brown</li>
 </ul></div>
 </div>
     <div class="section level2">
@@ -265,7 +337,7 @@
 <li>
 <code>==&lt;SpatRaster&gt;</code> with multiple layers and categorical comparison failed <a href="https://github.com/rspatial/terra/issues/1836" class="external-link">#1836</a> by Andrew Gene Brown</li>
 <li>
-<code>wrteCDF</code> failed when writing tags with illegal characters such as “{” or “(”, <a href="https://github.com/rspatial/terra/issues/1811" class="external-link">#1811</a> by Catalin Sorin Covaci</li>
+<code>writeCDF</code> failed when writing tags with illegal characters such as “{” or “(”, <a href="https://github.com/rspatial/terra/issues/1811" class="external-link">#1811</a> by Catalin Sorin Covaci</li>
 <li>
 <code>freq</code> failed for an empty SpatRaster <a href="https://github.com/rspatial/terra/issues/1839" class="external-link">#1839</a> by Alex Ilich</li>
 <li>
@@ -316,7 +388,7 @@
 <div class="section level3">
 <h3 id="enhancements-1-8-50">enhancements<a class="anchor" aria-label="anchor" href="#enhancements-1-8-50"></a></h3>
 <ul><li>
-<code>init</code> with a matrix argument now keeps the same row/col values <a href="https://github.com/rspatial/terra/issues/1801" class="external-link">#1801</a> Jakub Nowosad</li>
+<code>init</code> with a matrix argument now keeps the same row/col values <a href="https://github.com/rspatial/terra/issues/1801" class="external-link">#1801</a> by Jakub Nowosad</li>
 <li>
 <code>rasterize</code> now checks for very large numbers and switches to FLT8S if detected. <a href="https://github.com/rspatial/terra/issues/1797" class="external-link">#1797</a> by Evan Muise</li>
 <li>
@@ -588,7 +660,7 @@
 <div class="section level3">
 <h3 id="new-1-8-5">new<a class="anchor" aria-label="anchor" href="#new-1-8-5"></a></h3>
 <ul><li>
-<code>patches</code> with option <code>valus=TRUE</code> can now distinguish regions based on their cell values (instead of only NA vs not-NA) <a href="https://github.com/rspatial/terra/issues/495" class="external-link">#495</a> by Jakub Nowosad and <a href="https://github.com/rspatial/terra/issues/1632" class="external-link">#1632</a> by Agustin Lobo</li>
+<code>patches</code> with option <code>values=TRUE</code> can now distinguish regions based on their cell values (instead of only NA vs not-NA) <a href="https://github.com/rspatial/terra/issues/495" class="external-link">#495</a> by Jakub Nowosad and <a href="https://github.com/rspatial/terra/issues/1632" class="external-link">#1632</a> by Agustin Lobo</li>
 <li>
 <code>rowSums</code>, <code>rowMeans</code>, <code>colSums</code> and <code>colMeans</code> for SpatRaster</li>
 <li>
@@ -596,7 +668,7 @@
 <li>
 <code>metags</code> for layers (bands) of SpatRaster are now saved to and read from GTiff files <a href="https://github.com/rspatial/terra/issues/1071" class="external-link">#1071</a> by Mike Koontz</li>
 <li>
-<code>global</code> has new effcient functions “anyNA” and “anynotNA” <a href="https://github.com/rspatial/terra/issues/1540" class="external-link">#1540</a> by Kevin J Wolz</li>
+<code>global</code> has new efficient functions “anyNA” and “anynotNA” <a href="https://github.com/rspatial/terra/issues/1540" class="external-link">#1540</a> by Kevin J Wolz</li>
 <li>
 <code>wrap</code>, <code>saveRDS</code> and <code>serialize</code> for SpatExtent. <a href="https://github.com/rspatial/terra/issues/1430" class="external-link">#1430</a> by BastienFR</li>
 <li>
@@ -2033,7 +2105,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Robert J. Hijmans, Márcia Barbosa, Andrew Brown.</p>
+  <p>Developed by Robert J. Hijmans, Andrew Brown, Márcia Barbosa.</p>
 </div>
 
 <div class="pkgdown-footer-right">

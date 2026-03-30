@@ -74,36 +74,36 @@ f <- system.file("ex/elev.tif", package="terra")
 r <- rast(f)
 x <- setValues(r, 1:ncell(r))
 x
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 90, 95, 1  (nrow, ncol, nlyr)
-#> resolution  : 0.008333333, 0.008333333  (x, y)
+#> resolution  : 0.00833333, 0.00833333  (x, y)
 #> extent      : 5.741667, 6.533333, 49.44167, 50.19167  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (EPSG:4326) 
+#> coord. ref. : lon/lat WGS 84 (EPSG:4326)
 #> source(s)   : memory
-#> varname     : elev 
-#> name        : elevation 
-#> min value   :         1 
-#> max value   :      8550 
+#> varname     : elev
+#> name        : elevation
+#> min value   :         1
+#> max value   :      8550
 values(x) <- runif(ncell(x))
 x
-#> class       : SpatRaster 
+#> class       : SpatRaster
 #> size        : 90, 95, 1  (nrow, ncol, nlyr)
-#> resolution  : 0.008333333, 0.008333333  (x, y)
+#> resolution  : 0.00833333, 0.00833333  (x, y)
 #> extent      : 5.741667, 6.533333, 49.44167, 50.19167  (xmin, xmax, ymin, ymax)
-#> coord. ref. : lon/lat WGS 84 (EPSG:4326) 
+#> coord. ref. : lon/lat WGS 84 (EPSG:4326)
 #> source(s)   : memory
-#> varname     : elev 
-#> name        :    elevation 
-#> min value   : 0.0001064336 
-#> max value   : 0.9999305937 
+#> varname     : elev
+#> name        : elevation
+#> min value   :  0.000106
+#> max value   :  0.999931
 head(x)
 #>    elevation
-#> 1 0.07706438
-#> 2 0.03554058
-#> 3 0.64279549
-#> 4 0.92861520
-#> 5 0.59809242
-#> 6 0.56090075
+#> 1 0.20754511
+#> 2 0.22865814
+#> 3 0.59571200
+#> 4 0.57487220
+#> 5 0.07706438
+#> 6 0.03554058
 
 f <- system.file("ex/lux.shp", package="terra")
 v <- vect(f)

@@ -13,7 +13,7 @@ With "cuts" the values are sorted, so that the order in which they are provided 
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.8-94</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-13</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,7 @@ With "cuts" the values are sorted, so that the order in which they are provided 
 
   <dt id="arg-rcl">rcl<a class="anchor" aria-label="anchor" href="#arg-rcl"></a></dt>
 <dd><p>matrix for classification. This matrix must have 1, 2 or 3 columns. If there are three columns, the first two columns are "from" "to" of the input values, and the third column "becomes" has the new value for that range.</p>
-<p>The two column matrix ("is", "becomes") can be useful for classifying integer values. In that case, the arguments <code>right</code> and <code>include.lowest</code> are ignored.</p>
+<p>The two column matrix ("is", "becomes") can be useful for classifying integer values. In that case, the arguments <code>right</code> and <code>include.lowest</code> are ignored. For this case, an optimized hash-based lookup is used for improved performance. Floating point values are supported and are matched exactly.</p>
 <p>A single column matrix (or a vector) is interpreted as a set of cuts if there is more than one value. In that case the values are classified based on their location in-between the cut-values.</p>
 <p>If a single number is provided, that is used to make that number of cuts, at equal intervals between the lowest and highest values of the SpatRaster.</p></dd>
 
@@ -94,6 +94,10 @@ With "cuts" the values are sorted, so that the order in which they are provided 
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>SpatRaster</p>
+    </div>
+    <div class="section level2">
+    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
+    <p>Andrew Gene Brown, Robert J. Hijmans</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -171,7 +175,7 @@ With "cuts" the values are sorted, so that the order in which they are provided 
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Robert J. Hijmans, Márcia Barbosa, Andrew Brown.</p>
+  <p>Developed by Robert J. Hijmans, Andrew Brown, Márcia Barbosa.</p>
 </div>
 
 <div class="pkgdown-footer-right">
