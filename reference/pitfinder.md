@@ -1,20 +1,26 @@
-# Pit Finder in a Flow Dir SpatRaster for Watershed Extraction
+# Find pits (depressions with no outlet)
 
-find pits (depressions with no outlet )
+find pits (depressions with no outlet) using a flow direction raster, to
+support the delineation of catchments.
 
 ## Usage
 
 ``` r
 # S4 method for class 'SpatRaster'
-pitfinder(x,filename="",...)
+pitfinder(x,pits_on_boundary=TRUE,filename="",...)
 ```
 
 ## Arguments
 
 - x:
 
-  SpatRaster with flow-direction. See
-  [`terrain`](https://rspatial.github.io/terra/reference/terrain.md)
+  SpatRaster with flow-direcion. See
+  [`flowDir`](https://rspatial.github.io/terra/reference/flowDir.md)
+
+- pits_on_boundary:
+
+  logical if `TRUE` (default) pits are considered also on the boundary.
+  If `FALSE` pits are considered only within the terrain domain.
 
 - filename:
 
@@ -27,9 +33,8 @@ pitfinder(x,filename="",...)
 
 ## Value
 
-A
-[`SpatRaster-class`](https://rspatial.github.io/terra/reference/SpatRaster-class.md)
-(raster) map containing value 1 for the pits and value 0 elsewhere.
+`SpatRaster` with positive integers (1, 2, 3, ...) to identify pits and
+zero elsewhere.
 
 ## Author
 
@@ -37,12 +42,15 @@ Emanuele Cordano
 
 ## See also
 
-[`terrain`](https://rspatial.github.io/terra/reference/terrain.md),[`watershed`](https://rspatial.github.io/terra/reference/watershed.md),[`flowAccumulation`](https://rspatial.github.io/terra/reference/flowAccumulation.md),[`NIDP`](https://rspatial.github.io/terra/reference/NIPD.md)
+[`terrain`](https://rspatial.github.io/terra/reference/terrain.md),
+[`watershed`](https://rspatial.github.io/terra/reference/watershed.md),
+[`flowAccumulation`](https://rspatial.github.io/terra/reference/flowAccumulation.md),
+[`NIDP`](https://rspatial.github.io/terra/reference/NIDP.md)
 
 ## Examples
 
 ``` r
-## Creation of a Digital Elevation Model 
+## example elevation data
 
 elev <- array(NA,c(9,9))
 dx <- 1
@@ -50,11 +58,10 @@ dy <- 1
 for (r in 1:nrow(elev)) {
   x <- (r-5)*dx
   for (c in 1:ncol(elev)) {
-    
     y <- (c-5)*dy
     elev[r,c] <- 10+5*(x^2+y^2)
     }
-  } 
+} 
   
 elev <- cbind(elev,elev,elev,elev) 
 elev <- rbind(elev,elev,elev,elev) 
@@ -176,18 +183,15 @@ t(array(flowdir[],rev(dim(flowdir)[1:2])))
 #> [35,]    32    32   128   128   128    64    64    64    32    32    32
 #> [36,]    32    32   128   128   128    64    64    64    32    32    32
 
-## Pit Detect
-
+## detect pits
 pits <- pitfinder(flowdir)
 
 ## Application with example DEM
 
 elev <- rast(system.file('ex/elev.tif',package="terra"))
-flowdir <- terrain(elev,"flowdir")
+flowdir <- terrain(elev, "flowdir")
 
 pits <- pitfinder(flowdir)
-
-
-
-
+pits2 <- pitfinder(flowdir, pits_on_boundary=FALSE)
+plot((pits>0)==(pits2>0))
 ```

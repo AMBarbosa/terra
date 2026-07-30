@@ -1,9 +1,9 @@
-# Extract values from a SpatRaster
+# Extract values from a SpatRaster or polygon SpatVector
 
-Extract values from a SpatRaster for a set of locations. The locations
-can be a SpatVector (points, lines, polygons), a data.frame or matrix
-with (x, y) or (longitude, latitude – in that order!) coordinates, or a
-vector with cell numbers.
+Extract values from a SpatRaster or a polygon SpatVector for a set of
+locations. The locations can be a SpatVector (points, lines, polygons),
+a data.frame or matrix with (x, y) or (longitude, latitude – in that
+order!) coordinates, or a vector with cell numbers.
 
 When argument `y` is a `SpatVector` the first column has the ID (record
 number) of the `SpatVector` used (unless you set `ID=FALSE`).
@@ -49,12 +49,15 @@ extract(x, y, count=FALSE)
 
 - fun:
 
-  function to summarize the extracted data by line or polygon geometry.
-  You can use `fun=table` to tabulate raster values for each line or
-  polygon geometry. If `weights=TRUE` or `exact=TRUE` only `mean`,
-  `sum`, `min`, `max` and `table` are accepted — and these functions
-  will consider the fraction of a cell that is covered when computing
-  the mean or the sum). Ignored if `y` has point geometry
+  function to summarize the extracted data by line or polygon geometry,
+  such as `sum`, as well as terra built-in functions `"isNA"`, and
+  `"notNA"` to get the count of cells that are (not) `NA`, and `"sum2"`
+  (the sum of squares). You can use `fun=table` to tabulate raster
+  values for each line or polygon geometry. If `weights=TRUE` or
+  `exact=TRUE` only `mean`, `sum`, `min`, `max` and `table` are accepted
+  — and these functions consider the fraction of a cell that is covered
+  when computing the mean or the sum). Ignored if `y` has point
+  geometry.
 
 - method:
 

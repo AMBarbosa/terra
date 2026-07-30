@@ -10,7 +10,7 @@ spatial data and for some raster data processing. `PROJ` is used for
 transformation of coordinates ("projection") and `GEOS` is used for
 geometric operations with vector data.
 
-The current `GDAL` configuration options and obtained with
+The current `GDAL` configuration options are obtained with
 `getGDALconfig` and changed with `setGDALconfig`.
 
 `proj_ok` checks if the PROJ database with CRS definitions can be found.
@@ -83,8 +83,9 @@ projPaths(paths, with_proj = TRUE)
 
 - lib:
 
-  character. "gdal", "proj", or "geos", or any other value to get the
-  versions numbers of all three
+  character. "gdal", "proj", "geos", "TBB", or any other value to get
+  the versions numbers of the first three and a logical value indicating
+  whether TBB paralellization is available
 
 - parse:
 
@@ -126,8 +127,7 @@ file-level metadata "GDALinfo"
 
 ## Value
 
-character vector of search paths. When setting paths, the result is
-returned invisibly.
+character vector in most cases.
 
 ## Note
 
@@ -141,20 +141,22 @@ grids are locally available. Grids can be pre-downloaded using the
 on Ubuntu/Debian systems. Downloaded grids are cached locally and then
 reused for subsequent transformations.
 
+On Windows, PROJ network access may fail with SSL certificate errors
+(e.g. "schannel: CertGetCertificateChain trust error"). If you see these
+warnings during
+[`project`](https://rspatial.github.io/terra/reference/project.md)
+operations, you can use `projNetwork(FALSE)` to disable network access
+and silence them. To fix the underlying SSL issue, ensure your system's
+certificate store is up to date, or install the required PROJ datum
+grids locally.
+
 ## Examples
 
 ``` r
 gdal()
 #> [1] "3.8.4"
 gdal(2)
-head(gdal(drivers=TRUE))
-#>      name raster vector        can  vsi                     long.name
-#> 1 AAIGrid   TRUE  FALSE read/write TRUE           Arc/Info ASCII Grid
-#> 2    ACE2   TRUE  FALSE       read TRUE                          ACE2
-#> 3    ADRG   TRUE  FALSE read/write TRUE ARC Digitized Raster Graphics
-#> 4     AIG   TRUE  FALSE       read TRUE          Arc/Info Binary Grid
-#> 5     ARG   TRUE  FALSE read/write TRUE     Azavea Raster Grid format
-#> 6  AVCBin  FALSE   TRUE       read TRUE      Arc/Info Binary Coverage
+#head(gdal(drivers=TRUE))
 libVersion("all", TRUE)
 #>      major minor sub
 #> gdal     3     8   4

@@ -42,8 +42,9 @@ zonal(x, z, fun=mean, ..., weighted=FALSE, as.polygons=FALSE)
 - fun:
 
   function to be applied to summarize the values by zone. Either as
-  character: "mean", "min", "max", "sum", "isNA", and "notNA" and, for
-  relatively small SpatRasters, a proper function
+  character: "mean", "min", "max", "sum", "isNA", and "notNA" (these
+  work for zones with many cells), and, for smaller zones only, a proper
+  function
 
 - ...:
 
@@ -82,8 +83,7 @@ zonal(x, z, fun=mean, ..., weighted=FALSE, as.polygons=FALSE)
 - weights:
 
   logical. If `TRUE` and `y` has polygons, the approximate fraction of
-  each cell that is covered is returned as well, for example to compute
-  a weighted mean
+  each cell that is covered is used to compute a weighted mean
 
 - exact:
 
@@ -141,6 +141,7 @@ and columns.
 ## Examples
 
 ``` r
+
 ### SpatRaster, SpatRaster
 r <- rast(ncols=10, nrows=10)
 values(r) <- 1:ncell(r)

@@ -34,9 +34,9 @@ ext(x) <- value
 - x:
 
   SpatRaster, SpatVector, a numeric vector of length four (xmin, xmax,
-  ymin, ymax), a single numeric (xmin; see additional arguments
-  under`...`), or missing (in which case the output is the global extent
-  in lon-lat coordinates)
+  ymin, ymax), a single numeric (xmin; see additional arguments under
+  `...`), or missing (in which case the output is the global extent in
+  lon-lat coordinates)
 
 - cells:
 
@@ -89,7 +89,7 @@ ext(r) <- c(0, 2.5, 0, 1.5)
 r
 #> class       : SpatRaster
 #> size        : 180, 360, 1  (nrow, ncol, nlyr)
-#> resolution  : 0.00694444, 0.00833333  (x, y)
+#> resolution  : 0.006944444, 0.008333333  (x, y)
 #> extent      : 0, 2.5, 0, 1.5  (xmin, xmax, ymin, ymax)
 #> coord. ref. : lon/lat WGS 84 (CRS84) (OGC:CRS84)
 er <- ext(r)

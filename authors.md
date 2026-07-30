@@ -7,19 +7,19 @@
 
 - **Andrew Brown**. Author. [](https://orcid.org/0000-0002-4565-533X)
 
-- **Márcia Barbosa**. Author. [](https://orcid.org/0000-0001-8972-7713)
+- **A. Márcia Barbosa**. Author.
+  [](https://orcid.org/0000-0001-8972-7713)
 
-- **Krzysztof Dyba**. Contributor.
-  [](https://orcid.org/0000-0002-8614-3816)
+- **Emanuele Cordano**. Author.
+  [](https://orcid.org/0000-0002-3508-5898)
+
+- **Krzysztof Dyba**. Author. [](https://orcid.org/0000-0002-8614-3816)
 
 - **Roger Bivand**. Contributor.
   [](https://orcid.org/0000-0003-2392-6140)
 
 - **Michael Chirico**. Contributor.
   [](https://orcid.org/0000-0003-0787-087X)
-
-- **Emanuele Cordano**. Contributor.
-  [](https://orcid.org/0000-0002-3508-5898)
 
 - **Edzer Pebesma**. Contributor.
   [](https://orcid.org/0000-0001-8049-7069)
@@ -35,13 +35,13 @@
 Source:
 [`DESCRIPTION`](https://github.com/rspatial/terra/blob/master/DESCRIPTION)
 
-Hijmans R, Brown A, Barbosa M (2026). *terra: Spatial Data Analysis*. R
-package version 1.9-13, <https://rspatial.org/>.
+Hijmans R, Brown A, Barbosa A, Cordano E, Dyba K (2026). *terra: Spatial
+Data Analysis*. R package version 1.9-41, <https://rspatial.org/>.
 
     @Manual{,
       title = {terra: Spatial Data Analysis},
-      author = {Robert J. Hijmans and Andrew Brown and Márcia Barbosa},
+      author = {Robert J. Hijmans and Andrew Brown and A. Márcia Barbosa and Emanuele Cordano and Krzysztof Dyba},
       year = {2026},
-      note = {R package version 1.9-13},
+      note = {R package version 1.9-41},
       url = {https://rspatial.org/},
     }

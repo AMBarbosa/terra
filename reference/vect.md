@@ -27,7 +27,7 @@ vector data objects defined in the `sf` or `sp` packages.
 ``` r
 # S4 method for class 'character'
 vect(x, layer="", query="", dialect="", extent=NULL, filter=NULL, 
-    crs="", proxy=FALSE, what="", opts=NULL)
+    crs="", proxy=FALSE, what="", opts=NULL, kml.extended=NULL)
 
 # S4 method for class 'matrix'
 vect(x, type="points", atts=NULL, crs="")
@@ -119,6 +119,19 @@ vect(x)
 
   character. GDAL dataset open options. For example "ENCODING=LATIN1"
 
+- kml.extended:
+
+  logical or `NULL`. For `.kml` and `.kmz` files: GDAL's `KML` driver
+  (common on Windows) often reads only `Name` and `Description`, while
+  the `LIBKML` driver (common on Linux) may add many KML structure
+  fields as columns (often empty). With `NULL` (default) or `TRUE`, if
+  the suggested `XML` package is available, `terra` parses
+  `ExtendedData` and replaces the attribute table when the placemark
+  count matches the vector's feature count (same order as `<Placemark>`
+  elements with geometry). For `.kmz`, the archive is unpacked to a
+  temporary directory, preferring `doc.kml` if present. With `FALSE`,
+  GDAL fields are kept. Ignored when `proxy=TRUE` or `what != ""`.
+
 - geom:
 
   character. The field name(s) with the geometry data. Either two names
@@ -134,8 +147,8 @@ vect(x)
 
 - quiet:
 
-  logical. If `TRUE` a warning is given when `x` is a data.frame and the
-  values for geom and/or the crs are guessed from the data
+  logical. If `FALSE` a warning is given when `x` is a data.frame and
+  the values for geom and/or the crs are guessed from the data
 
 ## See also
 

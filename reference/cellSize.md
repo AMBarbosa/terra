@@ -34,7 +34,7 @@ cellSize(x, mask=FALSE, lyrs=FALSE, unit="m", transform=TRUE, rcx=100, filename=
 - lyrs:
 
   logical. If `TRUE` and `mask=TRUE`, the output has the same number of
-  layers as `x`. That is only useful if cases where the layers of `x`
+  layers as `x`. That is only useful in cases where the layers of `x`
   have different cells that are `NA`
 
 - unit:
@@ -75,6 +75,7 @@ SpatRaster
 ## Examples
 
 ``` r
+
 # SpatRaster 
 r <- rast(nrows=18, ncols=36)
 v <- 1:ncell(r)

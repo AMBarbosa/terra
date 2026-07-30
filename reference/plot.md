@@ -128,18 +128,18 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
   list with parameters for drawing the legend. See the arguments for
   [`legend`](https://rdrr.io/r/graphics/legend.html).
 
-  A legend can be placed with placed by specifying arguments `x` and
-  `y`. For a continuous legend `y` can have two values. `x` can also be
-  a SpatExtent. Furthermore, `x` can have be a keyword such "topleft"
-  and "bottomright" to place the legend at these locations inside the
-  map rectangle. For a continuous legend, only the placement keywords
+  A legend can be placed by specifying arguments `x` and `y`. For a
+  continuous legend `y` can have two values. `x` can also be a
+  SpatExtent. Furthermore, `x` can be a keyword such "topleft" and
+  "bottomright" to place the legend at these locations inside the map
+  rectangle. For a continuous legend, only the placement keywords
   "left", "right", "top", "bottom", "topright", "bottomright" are
   recognized; and when using these keywords, the legend is placed
   outside of the map rectangle. The placement of the legend can be
-  altered with argument `nudge` that move the location in the directions
-  specified with one value (x direction) or two values (x, y). For a
-  continuous legend it can also have four values (xmin, xmax, ymin,
-  ymax). When supplying coordinates, use `horiz=TRUE` to get a
+  altered with argument `nudge` that moves the location in the
+  directions specified with one value (x direction) or two values (x,
+  y). For a continuous legend it can also have four values (xmin, xmax,
+  ymin, ymax). When supplying coordinates, use `horiz=TRUE` to get a
   horizontal legend.
 
   Additional parameters for continuous legends include:
@@ -165,10 +165,15 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
   - `tick.col`, `tick.box.col` and `tick.lwd` to change the appearance
     of the tickmarks
 
+  - `title` add a legend title
+
   - `title.srt` to rotate the legend title
 
   - `title.x` and `title.y` to place the legend title at specific
     coordinates
+
+  - `bg` background color behind the legend (e.g. `"white"`) for
+    visibility when drawn on top of a map
 
 - pax:
 
@@ -177,7 +182,7 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
   include:
 
   - `side` numeric to indicate for which of the axes to draw a line.
-    Default is `1:4` (only noticble when `box=FALSE`.
+    Default is `1:4` (only noticeable when `box=FALSE`).
 
   - `tick` numeric to indicate for which of the axes to draw tickmarks.
     Default is `1:2` unless `side` is changed, in which case the default
@@ -420,7 +425,7 @@ s
 #> extent      : 0, 101, 0, 77  (xmin, xmax, ymin, ymax)
 #> coord. ref. : Cartesian (Meter)
 #> source      : logo.tif
-#> colors rgb  : 0, 1, 2
+#> colors rgb  : 1, 2, 3
 #> names       : red, green, blue
 #> min values  :   0,     0,    0
 #> max values  : 255,   255,  255

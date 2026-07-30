@@ -15,7 +15,7 @@ plet(x, y=1, col, alpha=0.8, main=names(x),
   tiles=c("Streets", "Esri.WorldImagery", "OpenTopoMap"), 
   wrap=TRUE, maxcell=500000, stretch=NULL, legend="bottomright", 
   shared=FALSE, panel=FALSE, collapse=TRUE, type=NULL, breaks=NULL,
-  breakby="eqint", range=NULL, fill_range=FALSE, map=NULL, ...) 
+  breakby="eqint", range=NULL, fill_range=FALSE, hover=FALSE, map=NULL, ...) 
 
 
 # S4 method for class 'SpatRasterCollection'
@@ -32,6 +32,8 @@ plet(x, y="", col, main=y, cex=1,
   wrap=TRUE, legend="bottomright", collapse=FALSE, type=NULL, breaks=NULL,
   breakby="eqint", sort=TRUE, reverse=FALSE, map=NULL, fill=NULL, ...)
 
+# S4 method for class 'data.frame'
+plet(x, ...)
 
 # S4 method for class 'SpatVectorCollection'
 plet(x, y="", col, main=y, cex=1, 
@@ -42,29 +44,41 @@ plet(x, y="", col, main=y, cex=1,
 
 
 # S4 method for class 'leaflet'
-lines(x, y, col, lwd=2, lty=NULL, alpha=1, 
-  label=NULL, popup=FALSE,...)
+lines(x, y, field="", col, lwd=2, lty=NULL, alpha=1, 
+  label=NULL, popup=FALSE, legend="bottomright", ...)
 
 # S4 method for class 'leaflet'
-points(x, y, col, border=col, cex=1, lwd=2, lty=NULL, 
-  alpha=c(.3, 1), label=1:nrow(y), popup=FALSE, ...)
+points(x, y, field="", col, border=col, cex=1, lwd=2, lty=NULL, 
+  alpha=c(.3, 1), label=1:nrow(y), popup=FALSE, legend="bottomright", ...)
 
 # S4 method for class 'leaflet'
-polys(x, y, col, lwd=2, lty=NULL, 
-  border="black", alpha=c(0.3, 1), popup=TRUE, label=NULL, fill=NULL, ...)
+polys(x, y, field="", col, lwd=2, lty=NULL, 
+  border="black", alpha=c(0.3, 1), popup=TRUE, label=NULL, 
+  legend="bottomright", fill=NULL, ...)
 ```
 
 ## Arguments
 
 - x:
 
-  SpatRaster, SpatVector, or leaflet object
+  SpatRaster, SpatVector, or leaflet object. If `x` is a data.frame, an
+  attempt is made to create a SpatVector from it with the
+  [`vect`](https://rspatial.github.io/terra/reference/vect.md) method
+  for a data.frame
 
 - y:
 
   missing, or positive integer, or character (variable or layer name)
   indicating the layer(s) to be plotted. If `x` is a SpatRaster, you can
-  select multiple layers
+  select multiple layers. If `x` is a leaflet object, `y` is the
+  SpatVector to be added to the map
+
+- field:
+
+  character (variable name) or positive integer (column number) to color
+  the points, lines, or polygons by the values of that variable of
+  SpatVector `y` (if `x` is a leaflet object). Use `""` to not color by
+  a variable
 
 - col:
 
@@ -117,7 +131,7 @@ polys(x, y, col, lwd=2, lty=NULL,
 - ...:
 
   additional arguments for drawing points, lines, or polygons passed on
-  the the relevant leaflet function
+  the relevant leaflet function
 
 - border:
 
@@ -193,6 +207,12 @@ polys(x, y, col, lwd=2, lty=NULL,
   logical. If `TRUE`, values outside of `range` get the colors of the
   extreme values; otherwise they get colored as `NA`
 
+- hover:
+
+  logical. If `TRUE`, the approximate raster cell values are shown when
+  hovering the mouse over the map. Not available for RGB rasters or
+  panel mode
+
 - reverse:
 
   logical. If `TRUE`, the legends order is reversed
@@ -212,24 +232,35 @@ if (FALSE) { # \dontrun{
 if (require(leaflet) && (packageVersion("leaflet") > "2.1.1")) {
 
 v <- vect(system.file("ex/lux.shp", package="terra"))
-p <- spatSample(as.polygons(v, ext=T), 30)
-values(p) = data.frame(id=11:40, name=sample(letters, 30, replace=TRUE))
+p <- spatSample(as.polygons(v, ext=TRUE), 30)
+values(p) = data.frame(id=11:40, value=rep(LETTERS[1:3], 10))
 
 m <- plet(v, "NAME_1", tiles="", border="blue")
-m <- points(m, p, col="red", cex=2, popup=T)
+m <- points(m, p, col="red", cex=2, popup=TRUE)
 lines(m, v, lwd=1, col="white")
+
+# color by the values of a variable
+plet(v, tiles="") |> points(p, cex=8)
+plet(v, "NAME_1", tiles="") |> points(p, field="value", cex=8, alpha=.9,
+        col=c("red", "blue", "yellow"), popup=TRUE)
 
 plet(v, "NAME_1", split=TRUE, alpha=.2) |> 
   points(p, col="white", border="red", cex=12, popup=TRUE, lwd=3, lty="1 4",
      clusterOptions = leaflet::markerClusterOptions())
 
+# SpatVectorCollection
+
 s <- svc(v, p)
 names(s) <- c("the polys", "set of points")
 plet(s, col=c("red", "blue"), lwd=1)
 
+# SpatRaster 
 
 r <- rast(system.file("ex/elev.tif", package="terra"))
 plet(r, main="Hi\nthere", tiles=NULL) |> lines(v, lwd=1)
+
+# hover to see raster values
+plet(r, hover=TRUE)
 
 plet(r, tiles="OpenTopoMap") |> lines(v, lwd=2, col="blue")
 

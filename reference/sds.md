@@ -17,7 +17,7 @@ for getting information about the sub-datasets present in a file.
 sds(x) 
 
 # S4 method for class 'character'
-sds(x, ids=0, opts=NULL, raw=FALSE, noflip=FALSE, guessCRS=TRUE, domains="")
+sds(x, ids=0, opts=NULL, raw=FALSE, noflip=FALSE, guessCRS=TRUE, domains="", md=FALSE)
 
 # S4 method for class 'SpatRaster'
 sds(x, ...) 
@@ -69,6 +69,17 @@ sds(x, crs="", extent=NULL)
   character. Metadata domains to read (see
   [`metags`](https://rspatial.github.io/terra/reference/metags.md) to
   retrieve their values if there are any). "" is the default domain
+
+- md:
+
+  logical. If `TRUE`, the multi-dimensional GDAL API is used for reading
+  the file. This API can only be used for a few file formats
+  (netCDF/HDF5) and can sometimes provide notably faster reading of data
+  with many (time) steps in the third or higher dimension. If no
+  subdataset is selected with `subds`, all usable arrays are combined
+  into one `SpatRaster` (like `md=FALSE`); a warning reports how many
+  variables and layers were combined when there is more than one
+  variable.
 
 - crs:
 

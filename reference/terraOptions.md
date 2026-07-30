@@ -58,6 +58,22 @@ functions.
 fraction of the raster resolution) that can be ignored when comparing
 alignment of rasters.
 
+**parallel** - logical. If `TRUE` multiple threads are used (using the
+TBB library) where that was implemented (including distance calculations
+on `SpatVector` and some `focal` computations. Use `libVersion` to check
+whether TBB support is available.
+
+**threads** - non-negative integer. Cap on the number of threads used by
+parallel computation (when `parallel=TRUE`), by GDAL warp (in `project`
+and `resample` when `threads=TRUE`), and for compressed GeoTIFF writing.
+The default is `16`. This cap avoids run-away thread counts on machines
+with very many cores; more threads rarely help as most parallel
+computations are limited by memory bandwidth. No more threads than the
+number of available CPUs are used on machines with fewer CPUs. Set it to
+`0` to remove the cap ("use all CPUs"). Lower values are useful to leave
+room for other processes, or when running multiple R processes at the
+same time).
+
 ## Note
 
 It is possible to set your own default options in "etc/.Rprofile.site"
@@ -78,21 +94,28 @@ list. Invisibly if `print=TRUE`
 terraOptions()
 #> memfrac   : 0.5
 #> tolerance : 0.1
+#> parallel  : TRUE
 #> verbose   : FALSE
+#> memmax    : 16
 #> todisk    : FALSE
-#> tempdir   : /tmp/Rtmp1P7C8y
+#> threads   : 16
+#> tempdir   : /tmp/RtmpApwSWR
 #> datatype  : FLT4S
 #> memmin    : 1
 #> progress  : 3
 terraOptions(memfrac=0.5, tempdir = "c:/temp")
 #> Warning: [options] you cannot set the tempdir to a path that does not exist
 terraOptions(progress=10)
+terraOptions(parallel=TRUE, threads=4)   # use TBB, capped at 4 threads
 terraOptions()
 #> memfrac   : 0.5
 #> tolerance : 0.1
+#> parallel  : TRUE
 #> verbose   : FALSE
+#> memmax    : 16
 #> todisk    : FALSE
-#> tempdir   : /tmp/Rtmp1P7C8y
+#> threads   : 4
+#> tempdir   : /tmp/RtmpApwSWR
 #> datatype  : FLT4S
 #> memmin    : 1
 #> progress  : 10

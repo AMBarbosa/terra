@@ -6,12 +6,14 @@ SpatRaster or a matrix with coordinates.
 ## Usage
 
 ``` r
-# S4 method for class 'SpatVector'
-project(x, y, partial = FALSE)
-
 # S4 method for class 'SpatRaster'
 project(x, y, method, mask=FALSE, align_only=FALSE, res=NULL, 
-  origin=NULL, threads=FALSE, filename="", ..., use_gdal=TRUE, by_util = FALSE)
+  origin=NULL, threads=FALSE, use_gdal=TRUE, by_util=FALSE, pipeline="", 
+  AOI=NULL, desired_accuracy=-1.0, allow_approx=TRUE, filename="", ...)
+
+# S4 method for class 'SpatVector'
+project(x, y, partial=FALSE, pipeline="", AOI=NULL,
+    desired_accuracy=-1.0, allow_approx=TRUE)
 
 # S4 method for class 'SpatExtent'
 project(x, from, to)
@@ -108,16 +110,10 @@ project(x, from, to)
 
 - threads:
 
-  logical. If `TRUE` multiple threads are used (faster for large files)
-
-- filename:
-
-  character. Output filename
-
-- ...:
-
-  additional arguments for writing files as in
-  [`writeRaster`](https://rspatial.github.io/terra/reference/writeRaster.md)
+  logical or positive integer. If `TRUE`, multiple threads are used
+  (faster for large files), no more than the "threads" setting of
+  [`terraOptions`](https://rspatial.github.io/terra/reference/terraOptions.md).
+  A number sets the thread count for this call directly
 
 - use_gdal:
 
@@ -130,6 +126,41 @@ project(x, from, to)
 - by_util:
 
   logical. If `TRUE` and `gdal=TRUE`, the GDAL warp utility is used
+
+- pipeline:
+
+  character. A PROJ pipeline string to use for the coordinate
+  transformation instead of letting GDAL select one automatically. You
+  can use
+  [`proj_pipelines`](https://rspatial.github.io/terra/reference/proj_pipelines.md)
+  to find available pipelines. When a pipeline is set, `y` is still used
+  to set the output CRS
+
+- AOI:
+
+  SpatExtent or object that has a SpatExtent to set the area of interest
+  for the transformation. This is used to select the most appropriate
+  transformation pipeline
+
+- desired_accuracy:
+
+  numeric. Only use transformations with at least this accuracy (in
+  metres). Use `-1` (the default) for no constraint. Requires GDAL \>=
+  3.3
+
+- allow_approx:
+
+  logical. If `FALSE`, only use transformations with known accuracy (no
+  "ballpark" transformations). Requires GDAL \>= 3.3
+
+- filename:
+
+  character. Output filename
+
+- ...:
+
+  additional arguments for writing files as in
+  [`writeRaster`](https://rspatial.github.io/terra/reference/writeRaster.md)
 
 - from:
 
@@ -146,7 +177,11 @@ SpatVector or SpatRaster
 ## See also
 
 [`crs`](https://rspatial.github.io/terra/reference/crs.md),
-[`resample`](https://rspatial.github.io/terra/reference/resample.md)
+[`resample`](https://rspatial.github.io/terra/reference/resample.md),
+[`warp_scale`](https://rspatial.github.io/terra/reference/warp_scale.md),
+[`proj_pipelines`](https://rspatial.github.io/terra/reference/proj_pipelines.md)
+and [`projNetwork`](https://rspatial.github.io/terra/reference/gdal.md)
+to enable or disable PROJ network access for datum grid downloads.
 
 ## Note
 
