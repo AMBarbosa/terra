@@ -32,7 +32,6 @@ messages <- function(x, f="") {
 	x
 }
 
-
 mem_info <- function(x, n=1, print=TRUE) {
 	#print=TRUE
 	n <- max(0,n)

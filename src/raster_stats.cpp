@@ -17,6 +17,7 @@
 
 #include "spatRaster.h"
 #include <limits>
+#include <functional>
 #include <set>
 //#include <cmath>
 //#include <algorithm>
@@ -1212,7 +1213,7 @@ SpatDataFrame SpatRaster::zonal_weighted(SpatRaster z, SpatRaster w, bool narm, 
 	size_t nl = nlyr();
 	size_t nc = ncol();
 	std::vector<std::map<double, double>> m(nl);
-	std::vector<std::map<double, size_t>> wsum(nl);
+	std::vector<std::map<double, double>> wsum(nl);
 
 	for (size_t i=0; i<bs.n; i++) {
 		unsigned nrc = bs.nrows[i] * nc;
@@ -1298,8 +1299,8 @@ SpatDataFrame SpatRaster::zonal_poly(SpatVector x, std::string fun, bool weights
 	}
 
 	if ((weights || exact)) {
-		if ((fun != "mean") && (fun!="min") && (fun!="max")) {
-			out.setError("fun should be 'min', 'max' or 'mean' when using weights/exact");
+		if ((fun != "mean") && (fun!="min") && (fun!="max")  && (fun!="sum")) {
+			out.setError("fun should be 'min', 'max', 'sum' or 'mean' when using weights/exact");
 			return out;
 		}
 	}
@@ -1358,6 +1359,27 @@ SpatDataFrame SpatRaster::zonal_poly(SpatVector x, std::string fun, bool weights
 					zv[j][i] = vsum / wsum;
 				}
 			}
+ 		} else if ((weights || exact) && fun == "sum") {
+			if (narm) {
+				for (size_t j=0; j<nl; j++) {
+					double vsum = 0;
+					for (size_t k=0; k<e[j].size(); k++) {
+						if (!std::isnan(e[j][k])) {
+							vsum += (e[j][k] * wgt[k]);
+						}
+					}
+					zv[j][i] = vsum;
+				}
+			} else {
+				for (size_t j=0; j<nl; j++) {
+					double vsum = 0;
+					for (size_t k=0; k<e[j].size(); k++) {
+						vsum += (e[j][k] * wgt[k]);
+					}
+					zv[j][i] = vsum;
+				}
+			}
+
 		} else {
 			for (size_t j=0; j<nl; j++) {
 				zv[j][i] = zfun(e[j], 0, e[j].size());

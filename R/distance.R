@@ -3,6 +3,8 @@
 # Version 1.0
 # License GPL v3
 
+
+
 setMethod("buffer", signature(x="SpatRaster"),
 	function(x, width, background=0, include=TRUE, filename="", ...) {
 		opt <- spatOptions(filename, ...)
@@ -64,23 +66,23 @@ setMethod("distance", signature(x="SpatRaster", y="missing"),
 
 
 setMethod("costDist", signature(x="SpatRaster"),
-	function(x, target=0, scale=1, maxiter=50, filename="", ...) {
+	function(x, target=0, scale=1, maxiter=50, nearest=FALSE, filename="", ...) {
 		opt <- spatOptions(filename, ...)
 		maxiter <- max(maxiter[1], 2)
-		x@pntr <- x@pntr$costDistance(target[1], scale[1], maxiter, FALSE, opt)
+		x@pntr <- x@pntr$costDistance(target[1], scale[1], maxiter, FALSE, isTRUE(nearest), opt)
 		messages(x, "costDist")
 	}
 )
 
 
 setMethod("gridDist", signature(x="SpatRaster"),
-	function(x, target=0, scale=1, maxiter=50, filename="", ...) {
+	function(x, target=0, scale=1, maxiter=50, nearest=FALSE, filename="", ...) {
 		opt <- spatOptions(filename, ...)
 		if (is.na(target)) {
 			x@pntr <- x@pntr$gridDistance(scale[1]	, opt)
 		} else {
 			maxiter <- max(maxiter[1], 2)
-			x@pntr <- x@pntr$costDistance(target[1], scale[1], maxiter, TRUE, opt)
+			x@pntr <- x@pntr$costDistance(target[1], scale[1], maxiter, TRUE, isTRUE(nearest), opt)
 		}
 		messages(x, "gridDist")
 	}
@@ -125,6 +127,19 @@ mat2wide <- function(m, sym=TRUE, keep=NULL) {
 		m
 	}
 }
+
+setMethod("furdist", signature(x="SpatVector", y="SpatVector"),
+	function(x, y, pairwise=FALSE, unit="m") {
+		opt <- spatOptions()	 
+		out <- x@pntr$furthest_distance(y@pntr, pairwise, unit, opt)
+		messages(x, "furdist")
+		if (pairwise) {
+			out[[1]]
+		} else {
+			data.frame(from=out[[1]]+1, to=out[[2]]+1, distance=out[[3]])
+		}
+	}
+)
 
 setMethod("distance", signature(x="SpatVector", y="ANY"),
 	function(x, y, sequential=FALSE, pairs=FALSE, symmetrical=TRUE, unit="m", method="haversine", use_nodes=FALSE, names=NULL) {
@@ -235,6 +250,15 @@ setMethod("distance", signature(x="matrix", y="missing"),
 setMethod("distance", signature(x="data.frame", y="missing"),
 	function(x, y, lonlat=NULL, sequential=FALSE, pairs=FALSE, symmetrical=TRUE, unit="m", method="geo") {
 		distance(as.matrix(x), lonlat=lonlat, sequential=sequential, pairs=pairs, symmetrical=symmetrical, unit=unit, method=method)
+	}
+)
+
+
+setMethod("thin", signature(x="SpatVector"),
+	function(x, d, unit="m") {
+		opt <- spatOptions()
+		x@pntr <- x@pntr$thin_geoms(d, unit, opt)
+		messages(x, "thin")
 	}
 )
 

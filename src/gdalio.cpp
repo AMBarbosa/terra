@@ -28,6 +28,58 @@
 
 #include "cpl_port.h"
 #include "cpl_conv.h" // CPLFree()
+#include "cpl_error.h"
+
+#include <mutex>
+#include <vector>
+#include <string>
+
+
+// Temporarily buffer GDAL error/warning messages to probe a source with one GDAL open mode (classic API)
+// without surfacing its failure when retried with another mode (multidim API).
+
+namespace {
+	struct CapturedGDALMsg {
+		CPLErr eErrClass;
+		int err_no;
+		std::string msg;
+	};
+	std::mutex terra_capture_mtx;
+	std::vector<CapturedGDALMsg> terra_capture_msgs;
+
+	void CPL_STDCALL terra_capture_handler(CPLErr eErrClass, int err_no, const char *msg) {
+		if (msg == NULL) return;
+		if (eErrClass < CE_Warning) return; // ignore CE_None / CE_Debug
+		std::lock_guard<std::mutex> lock(terra_capture_mtx);
+		if (terra_capture_msgs.size() < 100) {
+			terra_capture_msgs.push_back({eErrClass, err_no, std::string(msg)});
+		}
+	}
+}
+
+void gdal_capture_messages_begin() {
+	{
+		std::lock_guard<std::mutex> lock(terra_capture_mtx);
+		terra_capture_msgs.clear();
+	}
+	CPLPushErrorHandler((CPLErrorHandler) terra_capture_handler);
+}
+
+void gdal_capture_messages_end(bool emit) {
+	CPLPopErrorHandler();
+	std::vector<CapturedGDALMsg> msgs;
+	{
+		std::lock_guard<std::mutex> lock(terra_capture_mtx);
+		msgs.swap(terra_capture_msgs);
+	}
+	if (emit) {
+		for (size_t i = 0; i < msgs.size(); i++) {
+			// CE_Fatal would not return; never replay it as fatal.
+			CPLErr cls = (msgs[i].eErrClass >= CE_Fatal) ? CE_Failure : msgs[i].eErrClass;
+			CPLError(cls, msgs[i].err_no, "%s", msgs[i].msg.c_str());
+		}
+	}
+}
 
 
 
@@ -296,7 +348,7 @@ std::vector<std::vector<std::string>> sdinfo(std::string fname) {
 			name.push_back(s);
 			std::string vdelim = ":";
 			size_t pos = s.find_last_of(vdelim);
-			if (sub.constructFromFile(s, {-1}, {""}, {}, {}, false, false, {})) {
+			if (sub.constructFromFile(s, {-1}, {""}, {}, {}, {}, false, false, {}, 0)) {
 				nr.push_back(std::to_string(sub.nrow()));
 				nc.push_back(std::to_string(sub.ncol()));
 				nl.push_back(std::to_string(sub.nlyr()));
@@ -375,12 +427,12 @@ std::string SpatRaster::make_vrt(std::vector<std::string> filenames, std::vector
 	GDALDataset *ds = (GDALDataset *) GDALBuildVRT(outfile.c_str(), filenames.size(), NULL, names, vrtops, &pbUsageError);
 	GDALBuildVRTOptionsFree(vrtops);
 	CSLDestroy( names );
-	
+
 	if(ds == NULL )  {
 		setError("cannot create vrt. Error #"+ std::to_string(pbUsageError));
 		return("");
 	}
-	
+
     size_t nSources = 0;
 	char **fileList = ds->GetFileList();
 	if (fileList != NULL) {
@@ -396,7 +448,7 @@ std::string SpatRaster::make_vrt(std::vector<std::string> filenames, std::vector
 		opt.msg.has_warning = true;
 		opt.msg.warnings = {"vrt did not use " + std::to_string(ufo.size() - nSources) + " of the " + std::to_string(ufo.size()) + " files"};
 	}
-	
+
 	return outfile;
 }
 
@@ -614,6 +666,29 @@ bool SpatRaster::open_gdal(GDALDatasetH &hDS, int src, bool update, SpatOptions 
 			return false;
 		}
 	}
+
+#if GDAL_VERSION_NUM >= 3040000
+    // Expose multidim API as classic
+	// only safe when the layer<->band mapping is trivial; otherwise use memory
+	if (fromfile && (!update) && source[isrc].is_multidim) {
+		bool simple = (source[isrc].m_dims.size() == 2) || (source[isrc].m_dims.size() == 3);
+		if (simple && open_gdal_multidim(hDS, isrc)) {
+			return true;
+		}
+		// Cannot expose the array as a classic dataset directly
+		if (canProcessInMemory(opt)) {
+			fromfile = false;
+		} else {
+			SpatRaster tmp(source[isrc]);
+			tmp = tmp.writeTempRaster(opt);
+			if (tmp.hasError()) {
+				setError(tmp.getError());
+				return false;
+			}
+			return tmp.open_gdal(hDS, 0, update, opt);
+		}
+	}
+#endif
 
 	if (fromfile) {
 		std::string f;
@@ -860,7 +935,7 @@ bool SpatRaster::from_gdalMEM(GDALDatasetH hDS, bool set_geometry, bool get_valu
 
 
 
-char ** set_GDAL_options(std::string driver, double diskNeeded, bool writeRGB, std::vector<std::string> gdal_options) {
+char ** set_GDAL_options(std::string driver, double diskNeeded, bool writeRGB, bool parallel, unsigned threads, std::vector<std::string> gdal_options) {
 
 	char ** gdalops = NULL;
 	if (driver == "GTiff") {
@@ -888,6 +963,22 @@ char ** set_GDAL_options(std::string driver, double diskNeeded, bool writeRGB, s
 			}
 			if (big) {
 				gdalops = CSLSetNameValue( gdalops, "BIGTIFF", "YES");
+			}
+		}
+		if (compressed && parallel) {
+			bool numt = true;
+			for (size_t i=0; i<gdal_options.size(); i++) {
+				if (gdal_options[i].substr(0, 10) == "NUM_THREADS") {
+					numt = false;
+					break;
+				}
+			}
+			if (numt) {
+				if (threads > 0) {
+					gdalops = CSLSetNameValue( gdalops, "NUM_THREADS", std::to_string(threads).c_str());
+				} else {
+					gdalops = CSLSetNameValue( gdalops, "NUM_THREADS", "ALL_CPUS");
+				}
 			}
 		}
 		if (writeRGB) {
@@ -933,7 +1024,7 @@ bool SpatRaster::create_gdalDS(GDALDatasetH &hDS, std::string filename, std::str
 			return(false);
 		}
 
-		papszOptions = set_GDAL_options(driver, diskNeeded, false, opt.gdal_options);
+		papszOptions = set_GDAL_options(driver, diskNeeded, false, opt.parallel, opt.threads, opt.gdal_options);
 
 		if (datatype == "INT4S") {
 			naflag = INT32_MIN; //-2147483648;
@@ -1038,13 +1129,13 @@ std::vector<std::string> SpatRaster::getAllFiles() {
 		if( poDS == NULL )  {
 			continue;
 		}
-		
+
 		char **filelist = poDS->GetFileList();
 		if (filelist != NULL) {
 			for (size_t i=0; filelist[i] != NULL; i++) {
 				files.push_back(filelist[i]);
 			}
-			
+
 			std::vector<std::string> exts = {".vat.dbf", ".vat.cpg", ".json", ".aux.xml"};
 			for (size_t j=0; j<exts.size(); j++) {
 				std::string f = source[src].filename + exts[j];
@@ -1056,11 +1147,11 @@ std::vector<std::string> SpatRaster::getAllFiles() {
 		CSLDestroy(filelist);
 		GDALClose( (GDALDatasetH) poDS );
 	}
-	
+
 	for (size_t i=0; i<files.size(); i++) {
 		std::replace(files[i].begin(), files[i].end(), '\\', '/');
 	}
-	
+
 	return files;
 }
 

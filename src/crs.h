@@ -18,12 +18,37 @@
 //#ifdef useGDAL
 #include "ogr_spatialref.h"
 
+
+
+SpatDataFrame get_proj_pipelines(std::string source_crs, std::string target_crs,
+		std::string authority, std::vector<double> AOI, std::string use,
+		std::string grid_availability, double desired_accuracy,
+		bool strict_containment, bool axis_order_authority_compliant);
+
 bool can_transform(std::string fromCRS, std::string toCRS);
 SpatMessages transform_coordinates(std::vector<double> &x, std::vector<double> &y, std::string fromCRS, std::string toCRS);
+
+void proj_noise_reset();
+void proj_noise_drain(SpatMessages &m);
+void proj_noise_mark_cdn();
+void proj_noise_mark_cache_lock();
+
+struct ProjNoiseScope {
+	SpatMessages *m_target;
+	explicit ProjNoiseScope(SpatMessages &target) : m_target(&target) {
+		proj_noise_reset();
+	}
+	~ProjNoiseScope() {
+		if (m_target) proj_noise_drain(*m_target);
+	}
+	ProjNoiseScope(const ProjNoiseScope&) = delete;
+	ProjNoiseScope& operator=(const ProjNoiseScope&) = delete;
+};
 bool wkt_from_spatial_reference(const OGRSpatialReference *srs, std::string &wkt, std::string &msg);
 bool prj_from_spatial_reference(const OGRSpatialReference *srs, std::string &prj, std::string &msg);
 //std::vector<std::string> srefs_from_string(std::string input);
 bool wkt_from_string(std::string input, std::string& wkt, std::string& msg);
 bool is_ogr_error(OGRErr err, std::string &msg);
+void geo_ellipsoid_from_wkt(const std::string &wkt, double &a, double &f);
 
 //#endif

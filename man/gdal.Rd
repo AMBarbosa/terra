@@ -19,7 +19,7 @@ Set the \code{GDAL} warning level or get a \code{data.frame} with the available 
 
 \code{GDAL} is the software library that terra builds on to read and write spatial data and for some raster data processing. \code{PROJ} is used for transformation of coordinates ("projection") and \code{GEOS} is used for geometric operations with vector data.
 
-The current \code{GDAL} configuration options and obtained with \code{getGDALconfig} and changed with \code{setGDALconfig}. 
+The current \code{GDAL} configuration options are obtained with \code{getGDALconfig} and changed with \code{setGDALconfig}. 
 
 \code{proj_ok} checks if the PROJ database with CRS definitions can be found.
 
@@ -48,7 +48,7 @@ projPaths(paths, with_proj = TRUE)
   \item{size}{numeric. The new cache size in MB}  
   \item{option}{character. GDAL configuration option name, or a "name=value" string (in which case the value argument is ignored}
   \item{value}{character. value for GDAL configuration option. Use "" to reset it to its default value}
-  \item{lib}{character. "gdal", "proj", or "geos", or any other value to get the versions numbers of all three}
+  \item{lib}{character. "gdal", "proj", "geos", "TBB", or any other value to get the versions numbers of the first three and a logical value indicating whether TBB paralellization is available}
   \item{parse}{logical. Should the version be parsed into three numerical values (major, minor and sub versions)?}
   \item{x}{character. Drivers names such as "GTiff" to be unloaded. Or "" to reload all drivers}
   \item{enable}{logical. If \code{TRUE}, enable PROJ network access for high-accuracy grid-based transformations. If \code{FALSE}, disable network access and use ballpark transformations. If missing, return the current network status}
@@ -61,13 +61,13 @@ projPaths(paths, with_proj = TRUE)
 \seealso{\code{\link{describe}} for file-level metadata "GDALinfo"}
 
 \value{
-character vector of search paths. When setting paths, the result is returned invisibly.
+character vector in most cases. 
 }
 
 \examples{
 gdal()
 gdal(2)
-head(gdal(drivers=TRUE))
+#head(gdal(drivers=TRUE))
 libVersion("all", TRUE)
 projNetwork()
 projPaths()
@@ -76,6 +76,8 @@ projPaths(c("/custom/proj/path"))
 
 \note{
 While some spatial analyses may not be greatly affected by PROJ network settings (ballpark vs. grid-based transformations), the differences can be significant, especially when a transformation involves a shift in datum between different coordinate reference systems. For applications requiring high positional accuracy, ensure network access is enabled or grids are locally available. Grids can be pre-downloaded using the \code{projsync} utility or installed via system packages, such as \code{proj-data} on Ubuntu/Debian systems. Downloaded grids are cached locally and then reused for subsequent transformations. 
+
+On Windows, PROJ network access may fail with SSL certificate errors (e.g. "schannel: CertGetCertificateChain trust error"). If you see these warnings during \code{\link{project}} operations, you can use \code{projNetwork(FALSE)} to disable network access and silence them. To fix the underlying SSL issue, ensure your system's certificate store is up to date, or install the required PROJ datum grids locally.
 }
 
 \keyword{spatial}

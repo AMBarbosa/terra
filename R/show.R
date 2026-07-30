@@ -4,9 +4,12 @@
 # License GPL v3
 
 
-setMethod("show", "SpatExtent", function(object) cat(object@pntr$show()) )
+setMethod("show", "SpatExtent", function(object) {
+#	.show_ext(object)
+	cat(object@pntr$show())
+} )
 
-setMethod("show", "SpatRaster", function(object) cat(object@pntr$show()) )
+setMethod("show", "SpatRaster", function(object) cat(object@pntr$show(TRUE)) )
 
 setMethod("show", "SpatRasterCollection", function(object) cat(object@pntr$show()) )
 

@@ -87,11 +87,19 @@ libVersion <- function(lib="all", parse=FALSE) {
 		out <- proj_version()
 	} else if (lib=="geos") {
 		out <- .geos_version()
+	} else if (lib=="TBB") {
+		return(.have_TBB())
 	} else {
-		out <- c(gdal=.gdal_version(), proj=proj_version(), geos=.geos_version())
+		out <- data.frame(gdal=.gdal_version(), proj=proj_version(), geos=.geos_version(), TBB=.have_TBB())
 	}
 	if (parse) {
+		if (lib=="all") {
+			out$TBB <- NULL
+		} else if (lib == "tbb") {
+			return(out)
+		}
 		nms <- names(out)
+		out <- unlist(out)
 		out <- data.frame(matrix(as.numeric(unlist(strsplit(out, "\\."))), ncol=3, byrow=TRUE), row.names=nms)
 		names(out) <- c("major", "minor", "sub")
 	}

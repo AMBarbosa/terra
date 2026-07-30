@@ -1,5 +1,6 @@
 
 terra.Rcheck/*
+proj_conf*
 
 install_time_patches/
 src/Makevars.ucrt.orig
@@ -25,6 +26,10 @@ README.md
 ^\.Rproj\.user$
 
 ^_pkgdown\.yml$
-^docs$
 ^pkgdown$
 
+data/
+^_
+^doc
+
+inst/flow

@@ -17,12 +17,19 @@
 
 #include "spatBase.h"
 #include <fstream>
+#include <sstream>
 #include <random>
 #include <chrono>
 #include <thread>
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include "cpl_vsi.h"
+
+static inline bool is_vsi(const std::string& path) {
+	return path.size() > 4 && path.substr(0, 4) == "/vsi";
+}
 
 /*
 #if defined __has_include
@@ -64,6 +71,25 @@ bool write_text(std::string filename, std::vector<std::string> s) {
 
 std::vector<std::string> read_text(std::string filename) {
 	std::vector<std::string> s;
+	if (is_vsi(filename)) {
+		VSILFILE *fp = VSIFOpenL(filename.c_str(), "r");
+		if (fp != nullptr) {
+			char buf[4096];
+			std::string residual;
+			while (true) {
+				size_t nread = VSIFReadL(buf, 1, sizeof(buf), fp);
+				if (nread == 0) break;
+				residual.append(buf, nread);
+			}
+			VSIFCloseL(fp);
+			std::istringstream iss(residual);
+			std::string line;
+			while (std::getline(iss, line)) {
+				s.push_back(line);
+			}
+		}
+		return s;
+	}
 	std::string line;
 	std::ifstream f(filename);
 	if (f.is_open())  {
@@ -129,9 +155,97 @@ std::string dirname(std::string filename) {
 	}
 }
 
+// For /vsizip/, /vsigzip, extract the path in the .zip or .gz file.
+std::string get_vsi_container(const std::string& path) {
+	std::string prefix;
+	if (path.size() > 8 && path.substr(0, 8) == "/vsizip/") {
+		prefix = "/vsizip/";
+	} else if (path.size() > 10 && path.substr(0, 10) == "/vsigzip/") {
+		prefix = "/vsigzip/";
+	} else {
+		return "";
+	}
+	std::string rest = path.substr(prefix.size());
+	// Curly brace format: /vsizip/{container_path}/inner
+	if (!rest.empty() && rest[0] == '{') {
+		size_t end = rest.find('}');
+		if (end != std::string::npos) {
+			return rest.substr(1, end - 1);
+		}
+	}
+	// Standard format: look for .zip or .gz extension
+	for (const auto& ext : {".zip", ".ZIP", ".gz", ".GZ"}) {
+		size_t pos = rest.find(ext);
+		if (pos != std::string::npos) {
+			return rest.substr(0, pos + strlen(ext));
+		}
+	}
+	return "";
+}
+
+
 bool file_exists(const std::string& name) {
+	if (is_vsi(name)) {
+		std::string container = get_vsi_container(name);
+		if (!container.empty()
+				&& container.compare(0, 4, "/vsi") != 0
+				&& container.compare(0, 4, "http") != 0
+				&& container.compare(0, 5, "s3://") != 0) {
+			std::ifstream cf(container.c_str());
+			if (!cf.good()) return false;
+		}
+		// check remote file existence with VSIStatL
+		VSIStatBufL statBuf;
+		return VSIStatL(name.c_str(), &statBuf) == 0;
+	}
 	std::ifstream f(name.c_str());
 	return f.good();
+}
+
+
+bool looks_like_gdal_dsn(const std::string& name) {
+
+// test if the substring before the first ':' has at least 2 letters/digits/underscores
+// to identify GDAL "connection string" / DSN
+//
+// e.g.,  NETCDF:"/vsicurl/https://.../foo.nc":BRF1
+//        vrt:///vsicurl/https://.../foo.nc?transpose=/BRF1:1,0
+//        https://.../foo.tif
+//
+
+	size_t colon = name.find(':');
+	if (colon == std::string::npos || colon < 2) return false;
+	for (size_t i = 0; i < colon; i++) {
+		unsigned char c = static_cast<unsigned char>(name[i]);
+		// Driver / scheme prefixes are letters, digits, or '_'.
+		bool ok = (c >= 'A' && c <= 'Z') ||
+		          (c >= 'a' && c <= 'z') ||
+		          (c >= '0' && c <= '9') ||
+		          (c == '_');
+		if (!ok) return false;
+	}
+	return true;
+}
+
+
+bool split_dsn_subname(const std::string& dsn, std::string& path, std::string& varname) {
+// Parse a classic-API GDAL subdataset DSN into file path and trailing variable name. driver is dropped
+// works for <DRIVER>:"<path>":<varname>
+
+	if (!looks_like_gdal_dsn(dsn)) return false;
+	size_t pos = dsn.find(":\"");
+	if (pos == std::string::npos) return false;
+	size_t close_q = dsn.find('"', pos + 2);
+	if (close_q == std::string::npos) return false;
+	if (close_q + 1 >= dsn.size()) return false;
+	if (dsn[close_q + 1] != ':') return false;
+
+	std::string p = dsn.substr(pos + 2, close_q - pos - 2);
+	std::string v = dsn.substr(close_q + 2);
+	if (p.empty() || v.empty()) return false;
+	path = p;
+	varname = v;
+	return true;
 }
 
 
@@ -232,15 +346,30 @@ bool can_write(std::vector<std::string> filenames, std::vector<std::string> srcn
 	for (size_t i=0; i<filenames.size(); i++) {
 		if (!filenames[i].empty() && file_exists(filenames[i])) {
 			if (overwrite) {
-				if (remove(filenames[i].c_str()) != 0) {
-					msg = ("cannot overwrite existing file");
+				bool removed = false;
+				if (is_vsi(filenames[i])) {
+					// for archive VSI paths, delete the container file
+					std::string container = get_vsi_container(filenames[i]);
+					if (!container.empty()) {
+						removed = (remove(container.c_str()) == 0);
+					}
+					if (!removed) {
+						removed = (VSIUnlink(filenames[i].c_str()) == 0);
+					}
+				} else {
+					removed = (remove(filenames[i].c_str()) == 0);
+				}
+				if (!removed) {
+					msg = "cannot overwrite existing file";
 					return false;
 				}
-				std::vector<std::string> exts = {".vat.dbf", ".vat.cpg", ".json", ".aux.xml"};
-				for (size_t j=0; j<exts.size(); j++) {
-					std::string f = filenames[i] + exts[j];
-					if (file_exists(f)) {
-						remove(f.c_str());
+				if (!is_vsi(filenames[i])) {
+					std::vector<std::string> exts = {".vat.dbf", ".vat.cpg", ".json", ".aux.xml"};
+					for (size_t j=0; j<exts.size(); j++) {
+						std::string f = filenames[i] + exts[j];
+						if (file_exists(f)) {
+							remove(f.c_str());
+						}
 					}
 				}
 			} else {
@@ -273,13 +402,13 @@ std::string tempFile(std::string tmpdir, std::string fname, std::string ext) {
     'n','o','p','q','r','s','t','u','v','w','x','y','z' };
 
     std::uniform_int_distribution<std::mt19937::result_type> rand_nr(0, characters.size()-1); 
-	
+
     std::string randname;
 	randname.reserve(15);
     for (int i = 0; i < 15; i++) {
         randname += characters[rand_nr(my_rgen)];
     }
-  
+
 	std::string filename =  tmpdir + "/spat_" + fname + "_" + randname + ext;
 	if (file_exists(filename)) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -309,4 +438,61 @@ std::string tempFile(std::string tmpdir, unsigned pid, std::string ext) {
 	return filename;
 }
 */
+
+
+// --- open-file limit --------------------------------------------------------
+// Returns three numbers describing the file-descriptor situation:
+//   nopen  – how many handles/descriptors the process currently has open
+//   soft   – the current (soft) per-process limit
+//   hard   – the maximum the soft limit can be raised to (without privileges)
+//
+// POSIX : limits from getrlimit(RLIMIT_NOFILE), count from /proc/self/fd
+//         (Linux) or /dev/fd (macOS).
+// Windows: GDAL uses Win32 CreateFile (kernel handles), not CRT fopen, so we
+//          count kernel handles with GetProcessHandleCount.  The per-process
+//          handle limit on Windows is very large (16M+), so in practice the
+//          readStart guard will only trigger on POSIX systems.
+
+#ifdef _WIN32
+// windows.h already included at the top of ram.cpp; here we may need it too
+#ifndef _WINDOWS_
+#include <windows.h>
+#endif
+#else
+#include <sys/resource.h> // getrlimit, RLIMIT_NOFILE
+#include <dirent.h>       // opendir, readdir, closedir
+#endif
+
+void open_file_limit(size_t &nopen, size_t &soft, size_t &hard) {
+
+#ifdef _WIN32
+	DWORD hcount = 0;
+	GetProcessHandleCount(GetCurrentProcess(), &hcount);
+	nopen = (size_t) hcount;
+	soft  = 16777216;
+	hard  = 16777216;
+#else
+	struct rlimit rl;
+	if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
+		soft = (size_t) rl.rlim_cur;
+		hard = (rl.rlim_max == RLIM_INFINITY) ? (size_t) -1 : (size_t) rl.rlim_max;
+	} else {
+		soft = 256;
+		hard = 256;
+	}
+
+	nopen = 0;
+#ifdef __linux__
+	const char *fddir = "/proc/self/fd";
+#else
+	const char *fddir = "/dev/fd";
+#endif
+	DIR *d = opendir(fddir);
+	if (d) {
+		while (readdir(d)) nopen++;
+		closedir(d);
+		if (nopen >= 3) nopen -= 3;  // subtract ".", "..", and the opendir() fd
+	}
+#endif
+}
 

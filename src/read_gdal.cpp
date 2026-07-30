@@ -126,27 +126,29 @@ bool read_aux_json(std::string filename, std::vector<int64_t> &time, std::string
 		if (x[0] == "unit") iunit = i;
 	}
 	if (itime >= 0) {
-		std::vector<std::string> x = strsplit_first(s[itime], "[");
-		if (x.size() == 2) {
-			x = strsplit(x[1], "]");
-			x = strsplit(x[0], ",");
-			std::vector<int64_t> tm;
-			for (size_t i=0; i<x.size(); i++) {
-				unquote(x[i]);
-				tm.push_back( parse_time(x[i]) );
-			}
-			if (tm.size() == nlyr) {
-				time = tm;
-			}
-		}
-		if ((istep >= 0) && !time.empty()) {
-			std::vector<std::string> x = strsplit_first(s[istep], ":");
+		try {
+			std::vector<std::string> x = strsplit_first(s[itime], "[");
 			if (x.size() == 2) {
-				x = strsplit(x[1], ",");
-				unquote(x[0]);
-				timestep = x[0];
+				x = strsplit(x[1], "]");
+				x = strsplit(x[0], ",");
+				std::vector<int64_t> tm;
+				for (size_t i=0; i<x.size(); i++) {
+					unquote(x[i]);
+					tm.push_back( parse_time(x[i]) );
+				}
+				if (tm.size() == nlyr) {
+					time = tm;
+				}
 			}
-		}
+			if ((istep >= 0) && !time.empty()) {
+				std::vector<std::string> x = strsplit_first(s[istep], ":");
+				if (x.size() == 2) {
+					x = strsplit(x[1], ",");
+					unquote(x[0]);
+					timestep = x[0];
+				}
+			}
+		} catch(...) {}
 	}
 	if (iunit >= 0) {
 		std::vector<std::string> x = strsplit_first(s[iunit], "[");
@@ -186,7 +188,7 @@ bool GetRAT(GDALRasterAttributeTable *pRAT, SpatCategories &cats, const std::str
 */
 
 //	auto tabtype = pRAT->GetTableType(); perhaps check for "GRTT_ATHEMATIC" #1845
-	
+
 	size_t nc = (int) pRAT->GetColumnCount();
 	size_t nr = (int) pRAT->GetRowCount();
 
@@ -409,7 +411,7 @@ bool colsFromRat(SpatDataFrame &d, SpatDataFrame &out) {
 //	if (k >= 0) {
 	int k = 0;  
 	size_t j = d.iplace[k];
-		
+
 	if (d.itype[k] == 1) {
 		out.add_column(d.iv[j], "value");
 	} else if (d.itype[k] == 0) {
@@ -545,8 +547,6 @@ std::string basename_sds(std::string f) {
 	return f;
 }
 
-
-
 std::string getDsWKT(GDALDataset *poDataset) {
 	std::string wkt = "";
 #if GDAL_VERSION_MAJOR >= 3
@@ -634,8 +634,30 @@ void get_tags(std::vector<std::string> meta, std::string prefix,  std::vector<st
 			}
 		}
 	}
-	
+
 }
+
+
+
+// NETCDF:"/path/file.nc":var -> path + var 
+static bool split_file_array(const std::string &uri, std::string &filename, std::string &arrayname) {
+	static const char pfx[] = "NETCDF:\"";
+	const size_t plen = sizeof(pfx) - 1;
+	if (uri.size() < plen + 3) {
+		return false;
+	}
+	if (uri.compare(0, plen, pfx) != 0) {
+		return false;
+	}
+	size_t q = uri.find('"', plen);
+	if (q == std::string::npos || q + 2 >= uri.size() || uri[q + 1] != ':') {
+		return false;
+	}
+	filename = uri.substr(plen, q - plen);
+	arrayname = uri.substr(q + 2);
+	return !filename.empty() && !arrayname.empty();
+}
+
 
 std::vector<std::string> get_metadata(std::string filename, std::vector<std::string> options) {
 	std::vector<std::string> metadata;
@@ -654,11 +676,13 @@ std::vector<std::string> get_metadata(std::string filename, std::vector<std::str
 }
 
 
-SpatRasterStack::SpatRasterStack(std::string fname, std::vector<int> ids, bool useids, std::vector<std::string> options, bool noflip, bool guessCRS, std::vector<std::string> domains) {
+SpatRasterStack::SpatRasterStack(std::string fname, std::vector<int> ids, bool useids, std::vector<std::string> options, bool noflip, bool guessCRS, std::vector<std::string> domains, size_t md) {
 
     GDALDataset *poDataset = openGDAL(fname, GDAL_OF_RASTER | GDAL_OF_READONLY | GDAL_OF_VERBOSE_ERROR, {}, {});
     if( poDataset == NULL )  {
-		if (!file_exists(fname)) {
+		if (looks_like_gdal_dsn(fname)) {
+			setError("cannot read from " + fname);
+		} else if (!file_exists(fname)) {
 			setError("file does not exist: " + fname);
 		} else {
 			setError("cannot read from " + fname );
@@ -672,9 +696,10 @@ SpatRasterStack::SpatRasterStack(std::string fname, std::vector<int> ids, bool u
 	if (metadata == NULL) {
 		GDALClose( (GDALDatasetH) poDataset );
 		SpatRaster sub;
-		if (sub.constructFromFile(fname, {-1}, {""}, {}, options, false, guessCRS, domains)) {
+		bool ok = sub.constructFromFile(fname, {-1}, {""}, {}, options, {}, false, guessCRS, domains, md);
+		if (ok) {
 			std::string sname = sub.source[0].source_name;
-			push_back(sub, sname, sub.source[0].source_name_long, sub.source[0].unit[0], true);
+			push_back(sub, sname, sub.source[0].source_name_long, sub.source[0].getUnit(0), true);
 		}
 		return;
 	}
@@ -704,9 +729,23 @@ SpatRasterStack::SpatRasterStack(std::string fname, std::vector<int> ids, bool u
 				if (pos != std::string::npos) {
 					s.erase(0, pos + delim.length());
 					SpatRaster sub;
-					if (sub.constructFromFile(s, {-1}, {""}, {}, options, false, guessCRS, domains)) {
+					bool ok = false;
+					if (md > 0) {
+						std::string mf, an;
+						if (split_file_array(s, mf, an)) {
+							SpatRaster trym;
+							if (trym.constructFromFileMulti(mf, {-1}, {an}, {}, options, {}, false, guessCRS, domains)) {
+								sub = trym;
+								ok = true;
+							}
+						}
+					}
+					if (!ok) {
+						ok = sub.constructFromFile(s, {-1}, {""}, {}, options, {}, false, guessCRS, domains, md);
+					}
+					if (ok) {
 						std::string sname = sub.source[0].source_name.empty() ? basename_sds(s) : sub.source[0].source_name;
-						if (!push_back(sub, sname, sub.source[0].source_name_long, sub.source[0].unit[0], true)) {
+						if (!push_back(sub, sname, sub.source[0].source_name_long, sub.source[0].getUnit(0), true)) {
 							addWarning("skipped (different geometry): " + s);
 						}
 					} else {
@@ -738,7 +777,9 @@ SpatRasterCollection::SpatRasterCollection(std::string fname, std::vector<int> i
 //	std::vector<std::string> ops;
     GDALDataset *poDataset = openGDAL(fname, GDAL_OF_RASTER | GDAL_OF_READONLY | GDAL_OF_VERBOSE_ERROR, {}, {});
     if( poDataset == NULL )  {
-		if (!file_exists(fname)) {
+		if (looks_like_gdal_dsn(fname)) {
+			setError("cannot read from " + fname);
+		} else if (!file_exists(fname)) {
 			setError("file does not exist: " + fname);
 		} else {
 			setError("cannot read from " + fname );
@@ -752,7 +793,7 @@ SpatRasterCollection::SpatRasterCollection(std::string fname, std::vector<int> i
 	if (metadata == NULL) {
 		GDALClose( (GDALDatasetH) poDataset );
 		SpatRaster sub;
-		if (sub.constructFromFile(fname, {-1}, {""}, {}, options, false, guessCRS, domains)) {
+		if (sub.constructFromFile(fname, {-1}, {""}, {}, options, {}, false, guessCRS, domains, 0)) {
 			std::string sname = sub.source[0].source_name;
 			push_back(sub, sname);
 		}
@@ -783,7 +824,7 @@ SpatRasterCollection::SpatRasterCollection(std::string fname, std::vector<int> i
 			if (pos != std::string::npos) {
 				s.erase(0, pos + delim.length());
 				SpatRaster sub;
-				if (sub.constructFromFile(s, {-1}, {""}, {}, options, false, guessCRS, domains)) {
+				if (sub.constructFromFile(s, {-1}, {""}, {}, options, {}, false, guessCRS, domains, 0)) {
 					push_back(sub, basename_sds(s));
 				} else {
 					addWarning("skipped (fail): " + s);
@@ -805,6 +846,87 @@ SpatRasterCollection::SpatRasterCollection(std::string fname, std::vector<int> i
 	get_tags(meta, "NC_GLOBAL#", tagnames, tagvalues);
 	for (size_t i=0; i<tagnames.size(); i++) addTag(tagnames[i], tagvalues[i], "GLOBAL");
 
+}
+
+
+SpatRasterCollection::SpatRasterCollection(std::vector<std::string> fnames, std::vector<std::string> options, bool noflip, bool guessCRS, std::vector<std::string> domains, bool group) {
+
+// group=true : groups files with same geometry
+
+	std::vector<SpatRaster> rasters;
+	rasters.reserve(fnames.size());
+	std::vector<std::string> sources;
+	sources.reserve(fnames.size());
+
+	for (size_t i=0; i<fnames.size(); i++) {
+		SpatRaster sub;
+		if (sub.constructFromFile(fnames[i], {-1}, {""}, {}, options, {}, noflip, guessCRS, domains, 0)) {
+			rasters.push_back(sub);
+			sources.push_back(fnames[i]);
+		} else {
+			addWarning("skipped (could not open): " + fnames[i]);
+		}
+	}
+
+	if (!group) {
+		for (size_t i=0; i<rasters.size(); i++) {
+			std::string nm = rasters[i].source.empty() ? basename_noext(sources[i]) : rasters[i].source[0].source_name;
+			push_back(rasters[i], nm);
+		}
+		return;
+	}
+
+	std::vector<size_t> leaders;
+	std::vector<std::vector<size_t>> groups;
+	leaders.reserve(rasters.size());
+	groups.reserve(rasters.size());
+
+	for (size_t i=0; i<rasters.size(); i++) {
+		bool matched = false;
+		for (size_t g=0; g<leaders.size(); g++) {
+			SpatRaster probe = rasters[leaders[g]].deepCopy();
+			// lyrs=false, crs=true, tol=0, warncrs=false,
+			// ext=true, rowcol=true, res=true
+			if (probe.compare_geom(rasters[i], false, true, 0.0, false, true, true, true)) {
+				groups[g].push_back(i);
+				matched = true;
+				break;
+			}
+		}
+		if (!matched) {
+			leaders.push_back(i);
+			groups.push_back(std::vector<size_t>{i});
+		}
+	}
+
+	SpatOptions opt;
+	for (size_t g=0; g<groups.size(); g++) {
+		std::vector<size_t> &idxs = groups[g];
+		if (idxs.size() == 1) {
+			SpatRaster &r0 = rasters[idxs[0]];
+			std::string nm = r0.source.empty() ? basename_noext(sources[idxs[0]]) : r0.source[0].source_name;
+			push_back(r0, nm);
+			continue;
+		}
+		SpatRaster combined = rasters[idxs[0]];
+		for (size_t k=1; k<idxs.size(); k++) {
+			combined.addSource(rasters[idxs[k]], false, opt);
+		}
+		// Default name: shared dirname's basename when all files in the
+		// group sit in the same folder (typical "tile per folder" layout).
+		std::string dir0 = dirname(sources[idxs[0]]);
+		bool sameDir = !dir0.empty() && dir0 != ".";
+		for (size_t k=1; sameDir && k<idxs.size(); k++) {
+			if (dirname(sources[idxs[k]]) != dir0) sameDir = false;
+		}
+		std::string gname;
+		if (sameDir) {
+			gname = basename(dir0);
+		} else {
+			gname = basename_noext(sources[idxs[0]]);
+		}
+		push_back(combined, gname);
+	}
 }
 
 
@@ -844,7 +966,7 @@ bool getGCPs(GDALDataset *poDataset, SpatRasterSource &s) {
 	if (n == 0) return false;
 	const GDAL_GCP *gcp;
 	gcp	= poDataset->GetGCPs();
-	
+
 	double adfGeoTransform[6];
 	if (GDALGCPsToGeoTransform(n, gcp, adfGeoTransform, true)) {
 		//for (size_t i=0; i<6; i++) {
@@ -874,7 +996,7 @@ bool getGCPs(GDALDataset *poDataset, SpatRasterSource &s) {
 
 
 
-bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, std::vector<std::string> subdsname, std::vector<std::string> drivers, std::vector<std::string> options, bool noflip, bool guessCRS, std::vector<std::string> domains) {
+bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, std::vector<std::string> subdsname, std::vector<std::string> drivers, std::vector<std::string> options, std::vector<int> dims, bool noflip, bool guessCRS, std::vector<std::string> domains, size_t multi) {
 
 
 
@@ -883,7 +1005,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		setError("no raster data in WCS:");
 		return false;
 	}
-	
+
 	bool apply_so = true;
 	std::vector<std::string> clean_ops = options;
 	size_t opsz = options.size();
@@ -894,10 +1016,41 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		}
 	}
 
+#if GDAL_VERSION_NUM >= 3040000
+	const bool md_probe = (multi >= 1);
+	if (md_probe) gdal_capture_messages_begin();
+#endif
+
     GDALDataset *poDataset = openGDAL(fname, GDAL_OF_RASTER | GDAL_OF_READONLY | GDAL_OF_VERBOSE_ERROR, drivers, clean_ops);
 
+#if GDAL_VERSION_NUM >= 3040000
+	// Keep the probe's messages only when the classic open succeeded; otherwise
+	// discard them (the multidim fallback below emits its own diagnostics).
+	if (md_probe) gdal_capture_messages_end(poDataset != NULL);
+#endif
+
     if( poDataset == NULL )  {
-		if (!file_exists(fname)) {
+#if GDAL_VERSION_NUM >= 3040000
+		if (multi >= 1) {
+			std::string md_fname = fname;
+			std::vector<std::string> md_subname = subdsname;
+			std::string p, v;
+			if (split_dsn_subname(fname, p, v)) {
+				md_fname = p;
+				if (md_subname.empty() || md_subname[0].empty()) {
+					md_subname = {v};
+				}
+			}
+			msg.clearError();
+			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains)) {
+				return true;
+			}
+			msg.clearError();
+		}
+#endif
+		if (looks_like_gdal_dsn(fname)) {
+			setError("cannot open this file as a SpatRaster: " + fname);
+		} else if (!file_exists(fname)) {
 			setError("file does not exist: " + fname);
 		} else {
 			setError("cannot open this file as a SpatRaster: " + fname);
@@ -905,19 +1058,94 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		return false;
 	}
 
+	GDALDriver *poDriver = poDataset->GetDriver();
+	std::string gdrv = poDriver->GetDescription();
+
+#if GDAL_VERSION_NUM >= 3040000
+	// ZARR:"file":/temp:{10}:{0} does not work on the multidim API
+	bool classic_view = (fname.find(":{") != std::string::npos);
+	for (size_t i=0; (!classic_view) && i<subdsname.size(); i++) {
+		if (subdsname[i].find('{') != std::string::npos) classic_view = true;
+	}
+	if ((multi >= 1) && (gdrv != "VRT") && (!classic_view)) {
+		std::string md_fname = fname;
+		std::vector<std::string> md_subname = subdsname;
+		{
+			std::string p, v;
+			if (split_dsn_subname(fname, p, v)) {
+				md_fname = p;
+				if (md_subname.empty() || md_subname[0].empty()) {
+					md_subname = {v};
+				}
+			}
+		}
+
+		// The 2D driver applies projection-specific coordinate conversions 
+		double adfGT[6] = {0,1,0,0,0,1};
+		bool has_2d_gt = (poDataset->GetRasterCount() > 0) &&
+		                 (poDataset->GetGeoTransform(adfGT) == CE_None);
+
+		auto override_extent_from_2d_gt = [&]() {
+			if (!has_2d_gt) return;
+			if (source.empty()) return;
+			double xmin = adfGT[0];
+			double xmax = xmin + adfGT[1] * source[0].ncol;
+			if (xmin > xmax) std::swap(xmin, xmax);
+			double ymax = adfGT[3];
+			double ymin = ymax + adfGT[5] * source[0].nrow;
+			if (adfGT[5] > 0) {
+				source[0].flipped = true;
+				std::swap(ymin, ymax);
+			}
+			source[0].extent = SpatExtent(xmin, xmax, ymin, ymax);
+			if (adfGT[2] != 0 || adfGT[4] != 0) {
+				source[0].rotated = true;
+			}
+		};
+
+		if (gdrv == "netCDF") {
+			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains) ){
+				override_extent_from_2d_gt();
+				GDALClose( (GDALDatasetH) poDataset );		
+				return true;
+			}
+			msg.clearError();
+		}
+		const char* pszMetadata = poDriver->GetMetadataItem(GDAL_DCAP_MULTIDIM_RASTER);
+		if (pszMetadata != nullptr && EQUAL(pszMetadata, "YES")) {	
+			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains) ){
+				override_extent_from_2d_gt();
+				GDALClose( (GDALDatasetH) poDataset );		
+				return true;
+			} else {
+				addWarning("cannot open this file with the multidim API: " + fname);
+				msg.clearError();
+			}
+		}
+	}
+#endif
+
 	int nl = poDataset->GetRasterCount();
-	std::string gdrv = poDataset->GetDriver()->GetDescription();
 
 	CSLConstList metasds = poDataset->GetMetadata("SUBDATASETS");
-	
-	if (metasds != NULL) {
-		std::vector<std::string> meta;
-		for (size_t i=0; metasds[i] != NULL; i++) {
-			meta.push_back(metasds[i]);
-		}
-		GDALClose( (GDALDatasetH) poDataset );
-		return constructFromSDS(fname, meta, subds, subdsname, options, gdrv, noflip, guessCRS, domains);
 
+	// for now, JPEG only, if the root has (RGB) bands and a optional SUBDATASET
+	// use by default the root so GeoTransform / worldfile / CRS apply. see #918 
+	// unless nl==0, for other drivers (ncdf) this should be an option (collapse=true -> constructFromSDS)
+	if (metasds != NULL) {
+		bool explicit_sds = (!subds.empty() && (subds[0] >= 0)) ||
+			(!subdsname.empty() && !subdsname[0].empty());
+		bool jpeg_use_root = (lower_case(gdrv) == "jpeg") && (nl > 0) && !explicit_sds;
+		bool force_sds = (nl == 0) || !jpeg_use_root;
+		if (force_sds) {
+			std::vector<std::string> meta;
+			for (size_t i=0; metasds[i] != NULL; i++) {
+				meta.push_back(metasds[i]);
+			}
+			GDALClose( (GDALDatasetH) poDataset );
+			return constructFromSDS(fname, meta, subds, subdsname, options, gdrv, noflip, guessCRS, domains);
+		}
+		// else: JPEG with bands and no subdataset request — keep poDataset as main raster
 	} else if (nl==0) {
 		setError("no raster data in " + fname);
 		return false;
@@ -938,7 +1166,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			}
 		}
 	}
-	
+
 	SpatRasterSource s;
 
 	CSLConstList metasrc = poDataset->GetMetadata();
@@ -969,6 +1197,13 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			std::swap(ymin, ymax);
 			s.extset = true;
 			s.flipped = true;
+		}
+		// normalize for rotated rasters
+		if (xmin > xmax) { // gt[1]<0
+			std::swap(xmin, xmax);
+		}
+		if (ymin > ymax) {
+			std::swap(ymin, ymax);
 		}
 
 		SpatExtent e(xmin, xmax, ymin, ymax);
@@ -1063,10 +1298,10 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 	std::vector<std::string> datm, unts;
 	datm.reserve(s.nlyr);
 	unts.reserve(s.nlyr);
-	
+
 	int bs1, bs2;
 	for (size_t i = 0; i < s.nlyr; i++) {
-		
+
 		poBand = poDataset->GetRasterBand(i+1);
 
 		if (s.hasTime) {
@@ -1094,7 +1329,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			//for (size_t j = 0; j<bandmeta[i].size(); j++) {
 			//	Rcpp::Rcout << bandmeta[i][j] << std::endl;
 			//}
-			
+
 			CSLConstList meterra = poBand->GetMetadata("USER_TAGS");
 			if (meterra != NULL) {
 //				std::vector<std::string> meta;
@@ -1121,38 +1356,29 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		adfMinMax[0] = poBand->GetMinimum( &bGotMin );
 		adfMinMax[1] = poBand->GetMaximum( &bGotMax );
 
-		s.has_scale_offset[i] = false;
-
+		double lscale = 1, loffset = 0;
 		if (apply_so) {
 			double offset = poBand->GetOffset(&success);
-			if (success) {
-				if (offset != 0) {
-					s.offset[i] = offset;
-					s.has_scale_offset[i] = true;
-				}
+			if (success && (offset != 0)) {
+				loffset = offset;
 			}
 			double scale = poBand->GetScale(&success);
-			if (success) {
-				if (scale != 1) {
-					s.scale[i] = scale;
-					s.has_scale_offset[i] = true;
-				}
+			if (success && (scale != 1)) {
+				lscale = scale;
 			}
-			if (s.has_scale_offset[i]) {
-				adfMinMax[0] = adfMinMax[0] * s.scale[i] + s.offset[i];
-				adfMinMax[1] = adfMinMax[1] * s.scale[i] + s.offset[i];
-			}
+		}
+		s.setScaleOffset(i, lscale, loffset);
+		if (s.getHasScaleOffset(i)) {
+			adfMinMax[0] = adfMinMax[0] * lscale + loffset;
+			adfMinMax[1] = adfMinMax[1] * lscale + loffset;
 		}
 
 		if( (bGotMin && bGotMax) ) {
-			s.hasRange[i] = true;
-			s.range_min[i] = adfMinMax[0];
-			s.range_max[i] = adfMinMax[1];
+			s.setRange(i, adfMinMax[0], adfMinMax[1]);
 		}
 
 		poBand->GetBlockSize(&bs1, &bs2);
-		s.blockcols[i] = bs1;
-		s.blockrows[i] = bs2;
+		s.setBlockSize(i, bs2, bs1);
 		s.dtype = dtypename(GDALGetDataTypeName(poBand->GetRasterDataType()));
 
 
@@ -1169,8 +1395,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		}
 		GDALColorTable *ct = poBand->GetColorTable();
 		if( ct != NULL ) {
-			s.hasColors[i] = true;
-			s.cols[i] = GetCOLdf(ct);
+			s.setCol(i, GetCOLdf(ct));
 		}
 
 		std::string bandname = poBand->GetDescription();
@@ -1178,20 +1403,17 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		char **cat = poBand->GetCategoryNames();
 		if (cat != NULL)	{
 			SpatCategories scat = GetCategories(cat, bandname);
-
-			s.cats[i] = scat;
-			s.hasCategories[i] = true;
+			s.setCat(i, scat);
 		}
 
 		SpatCategories crat;
 		//bool found_rat = false;
-		
-		if (!s.hasCategories[i]) {
+
+		if (!s.hasCat(i)) {
 			GDALRasterAttributeTable *rat = poBand->GetDefaultRAT();
 			if (rat != NULL) {
 				if (GetRAT(rat, crat, gdrv)) {
-					s.cats[i] = crat;
-					s.hasCategories[i] = true;
+					s.setCat(i, crat);
 //				} else {
 //					found_rat = false;
 				}
@@ -1201,30 +1423,29 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		//		s.cats[i].d.cbind(crat.d); // needs more checking.
 		//	} else {
 
-		if (!s.hasCategories[i]) {
+		if (!s.hasCat(i)) {
 			if (GetVAT(fname, crat)) {
-				s.cats[i] = crat;
-				s.hasCategories[i] = true;
+				s.setCat(i, crat);
 				//found_rat = true;
 			}
 		}
 
-		if ((!s.hasColors[i]) && s.hasCategories[i]) {
+		if ((!s.hasCol(i)) && s.hasCat(i)) {
 			SpatDataFrame ratcols;
 			if (colsFromRat(crat.d, ratcols)) {
-				s.hasColors[i] = true;
-				s.cols[i] = ratcols;
+				s.setCol(i, ratcols);
 			}
 		}
 
 		std::string nm = "";
-		if (s.hasCategories[i]) {
-			if ((s.cats[i].index >= 0) && (s.cats[i].index < (int)s.cats[i].d.ncol())) {
-				std::vector<std::string> nms = s.cats[i].d.get_names();
-				nm = nms[s.cats[i].index];
+		if (s.hasCat(i)) {
+			SpatCategories icat = s.getCat(i);
+			if ((icat.index >= 0) && (icat.index < (int)icat.d.ncol())) {
+				std::vector<std::string> nms = icat.d.get_names();
+				nm = nms[icat.index];
 			}
 		}
-		
+
 		if (nm.empty()) {
 			if (!bandname.empty()) {
 				nm = bandname;
@@ -1236,14 +1457,14 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		}
 
 		std::string dtype = GDALGetDataTypeName(poBand->GetRasterDataType());
-		if ((!s.has_scale_offset[i]) && (in_string(dtype, "Int") || (dtype == "Byte"))) {
-			s.valueType[i] = 1;
+		if ((!s.getHasScaleOffset(i)) && (in_string(dtype, "Int") || (dtype == "Byte"))) {
+			s.setValueType(i, 1);
 		}
-		s.names[i] = nm;
+		s.setName(i, nm);
 	}
 
 	if (s.hasTime) {
-			
+
 		if (datm[0].find('T') != std::string::npos) {
 			s.timestep = "seconds";
 		} else {
@@ -1272,25 +1493,25 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			}
 		}
 		for (size_t i=0; i<datm.size(); i++) {
-			s.time[i] = parse_time(datm[i]);
+			s.setTime(i, parse_time(datm[i]));
 		}
-		
+
 
 // try units from json
-		std::vector<int64_t> timestamps;
-		std::string timestep="raw";
-		//std::vector<std::string> units;
-		try {
-			read_aux_json(fname, timestamps, timestep, unts, s.nlyr);
-		} catch(...) {
-			unts.resize(0);
-			addWarning("could not parse aux.json");
+		if (unts.empty()) {
+			std::vector<int64_t> timestamps;
+			std::string timestep="raw";
+			try {
+				read_aux_json(fname, timestamps, timestep, unts, s.nlyr);
+			} catch(...) {
+				unts.resize(0);
+			}
+			if (!unts.empty()) {
+				s.hasUnit = true;
+			}
 		}
-		if (!unts.empty()) {
-			s.hasUnit = true;
-		}
-		
-		
+
+
 	} else {
 
 		std::vector<int64_t> timestamps;
@@ -1323,7 +1544,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 	std::vector<std::string> metadata;
 
 	if ((gdrv=="netCDF") || (gdrv == "HDF5"))  {
-		
+
 		CSLConstList m = poDataset->GetMetadata();
 		if (m) {
 			while (*m != nullptr) {
@@ -1431,7 +1652,7 @@ void NAso(std::vector<double> &d, size_t n, const std::vector<double> &flags, co
 				std::replace(d.begin()+start, d.begin()+start+n, flag, na);
 			}
 		}
-		
+
 		if (haveso[i]) {
 			for (size_t j=start; j<(start+n); j++) {
 				d[j] = d[j] * scale[i] + offset[i];
@@ -1552,7 +1773,7 @@ std::vector<double> SpatRaster::readValuesGDAL(size_t src, size_t row, size_t nr
 	}
 
     GDALDataset *poDataset = openGDAL(source[src].filename, GDAL_OF_RASTER | GDAL_OF_READONLY, source[src].open_drivers, source[src].open_ops);
-	
+
     if( poDataset == NULL )  {
 		if (!file_exists(source[src].filename )) {
 			setError("file does not exist: " + source[src].filename);
@@ -1634,7 +1855,7 @@ std::vector<double> SpatRaster::readGDALsample(size_t src, size_t srows, size_t 
 	}
 
 	std::vector<std::string> openops = source[src].open_ops;
-	
+
 	#if GDAL_VERSION_MAJOR <= 3 && GDAL_VERSION_MINOR < 3
 	// do nothing
 	#else 
@@ -1642,7 +1863,7 @@ std::vector<double> SpatRaster::readGDALsample(size_t src, size_t srows, size_t 
 		openops.push_back("OVERVIEW_LEVEL=NONE");
 	}
 	#endif
-	
+
     GDALDataset *poDataset = openGDAL(source[src].filename, GDAL_OF_RASTER | GDAL_OF_READONLY, source[src].open_drivers, openops);
 
     if( poDataset == NULL )  {
@@ -1826,7 +2047,7 @@ void SpatRaster::readRowColGDAL(size_t src, std::vector<std::vector<double>> &ou
 		setError("cannot read values");
 		return;
 	}
-	
+
 
 }
 
@@ -2032,7 +2253,7 @@ bool SpatRaster::constructFromSDS(std::string filename, std::vector<std::string>
 	std::vector<std::vector<std::string>> info = parse_metadata_sds(meta);
 	int n = info[0].size();
 
-	if (gtiff && (subds[0] < 0) && subdsname[0].empty()) {
+	if (gtiff && (subds[0] < 0) && (subdsname.empty() || subdsname[0].empty())) {
 		subds.resize(n);
 		std::iota(subds.begin(), subds.end(), 0);
 	}
@@ -2118,7 +2339,7 @@ bool SpatRaster::constructFromSDS(std::string filename, std::vector<std::string>
 	size_t cnt;
 
     for (cnt=0; cnt < sd.size(); cnt++) {
-		if (constructFromFile(sd[cnt], {-1}, {""}, {}, options, noflip, guessCRS, domains)) break;
+		if (constructFromFile(sd[cnt], {-1}, {""}, {}, options, {}, noflip, guessCRS, domains, 0)) break;
 	}
 //	source[0].source_name = srcname[cnt];
 
@@ -2129,7 +2350,7 @@ bool SpatRaster::constructFromSDS(std::string filename, std::vector<std::string>
 	SpatOptions opt;
     for (size_t i=(cnt+1); i < sd.size(); i++) {
 //		printf( "%s\n", sd[i].c_str() );
-		bool success = out.constructFromFile(sd[i], {-1}, {""}, {}, options, noflip, guessCRS, domains);
+		bool success = out.constructFromFile(sd[i], {-1}, {""}, {}, options, {}, noflip, guessCRS, domains, 0);
 		if (success) {
 			if (out.compare_geom(*this, false, false, 0.1)) {
 //				out.source	[0].source_name = srcname[i];
@@ -2235,7 +2456,7 @@ std::vector<int64_t> ncdf_time(const std::vector<std::string> &metadata, std::ve
 	std::vector<double> raw;
 	raw.reserve(vals.size());
 	for (size_t i=0; i<vals.size(); i++) {
-		
+
 		double dval;
 		if (get_double(vals[i], dval)) {
 			raw.push_back(dval);
@@ -2333,6 +2554,24 @@ std::vector<int64_t> ncdf_time(const std::vector<std::string> &metadata, std::ve
 			msg = "unknown calendar (assuming standard): " + calendar;			
 		}
 
+		// CF "standard" calendar is mixed Julian/Gregorian.  When the
+		// origin is before 1582-10-15 the raw offsets are Julian-counted
+		// but get_time() uses proleptic Gregorian.  Correct here.
+		if (cal == "366" && calendar != "proleptic_gregorian") {
+			std::vector<int> ymd0 = getymd(origin);
+			long corr = standard_cal_correction(ymd0[0], ymd0[1], ymd0[2]);
+			if (corr != 0) {
+				double corr_unit = 0;
+				if (days)          corr_unit = corr;
+				else if (hours)    corr_unit = corr * 24.0;
+				else if (minutes)  corr_unit = corr * 1440.0;
+				else if (seconds)  corr_unit = corr * 86400.0;
+				for (size_t i = 0; i < raw.size(); i++) {
+					raw[i] -= corr_unit;
+				}
+			}
+		}
+
 		// this shortcut means that 360/noleap calendars loose only have dates, no time
 		// to be refined
 		if ((hours || minutes || seconds) && (cal == "360")) {
@@ -2356,7 +2595,7 @@ std::vector<int64_t> ncdf_time(const std::vector<std::string> &metadata, std::ve
 			}
 			days = true;
 		} 
-	
+
 		if (days) {
 			step = "days";
 			std::vector<int> ymd = getymd(origin);
@@ -2545,7 +2784,7 @@ void SpatRasterSource::set_names_time_ncdf(std::vector<std::string> metadata, st
 	std::vector<double> mdepth;
 	bool hasdepth = true;
 	ncdf_names(bandmeta, nms, mdepth, hasdepth, depthname);
-	
+
 
 /*
 	for (size_t i=0; i<nms.size(); i++) {
@@ -2555,7 +2794,7 @@ void SpatRasterSource::set_names_time_ncdf(std::vector<std::string> metadata, st
 		Rcpp::Rcout << std::endl;
 	}
 */
-	
+
 	if (hasdepth) {
 		depth = mdepth;
 		hasDepth = true;
@@ -2569,7 +2808,7 @@ void SpatRasterSource::set_names_time_ncdf(std::vector<std::string> metadata, st
 			}
 		}
 	}
-	
+
 	if (!nms[1].empty()) {
 		names = nms[1];
 		make_unique_names(names);
@@ -2587,7 +2826,7 @@ void SpatRasterSource::set_names_time_ncdf(std::vector<std::string> metadata, st
 		}
 		recycle(unit, nlyr);
 	}
-	
+
 	if (!nms[0].empty()) {
 		std::string step;
 		std::vector<int64_t> x;
@@ -2611,7 +2850,7 @@ std::vector<std::vector<std::string>> grib_names(const std::vector<std::vector<s
 
 	std::vector<std::vector<std::string>> out(4);
 	if (m.empty()) return out;
-	
+
 	bool ft1 = false;
 	bool ft2 = false;
 
@@ -2620,7 +2859,7 @@ std::vector<std::vector<std::string>> grib_names(const std::vector<std::vector<s
 		std::string comm, time1, time2, units = "";
 
 		for (size_t j=0; j<m[i].size(); j++) {
-			
+
 			size_t pos = m[i][j].find("GRIB_COMMENT=");
 			if (pos != std::string::npos) {
 				comm = m[i][j];
@@ -2666,7 +2905,7 @@ std::vector<std::vector<std::string>> grib_names(const std::vector<std::vector<s
 		out[2].push_back(time1);
 		out[3].push_back(time2);
 	}
-	
+
 	if (!ft1) {
 		if (ft2) {
 			out[2] = out[3];
@@ -2681,7 +2920,7 @@ std::vector<std::vector<std::string>> grib_names(const std::vector<std::vector<s
 void SpatRasterSource::set_names_time_grib(std::vector<std::vector<std::string>> bandmeta, std::string &msg) {
 
 	if (bandmeta.empty()) return;
-	
+
 	std::vector<std::vector<std::string>> nms = grib_names(bandmeta);
 
 	if (nms[0].size() != names.size()) return;
@@ -2721,7 +2960,7 @@ void SpatRasterSource::set_names_time_grib(std::vector<std::vector<std::string>>
 		timestep = "seconds";
 		hasTime = true;
 	}
-	
+
 }
 
 
@@ -2730,7 +2969,7 @@ std::vector<std::vector<std::string>> tiff_names(const std::vector<std::vector<s
 
 	std::vector<std::vector<std::string>> out(4);
 	if (m.empty()) return out;
-	
+
 	for (size_t i=0; i<m.size(); i++) {
 
 		std::string time, units = "";
@@ -2769,7 +3008,7 @@ std::vector<std::vector<std::string>> tiff_names(const std::vector<std::vector<s
 		out[1].push_back(units);
 		out[2].push_back(time);
 	}
-	
+
 	return out;
 }
 
@@ -2777,7 +3016,7 @@ std::vector<std::vector<std::string>> tiff_names(const std::vector<std::vector<s
 void SpatRasterSource::set_names_time_tif(std::vector<std::vector<std::string>> bandmeta, std::string &msg) {
 
 	if (bandmeta.empty()) return;
-	
+
 	std::vector<std::vector<std::string>> nms = tiff_names(bandmeta);
 
 	if (nms[1].size() == nlyr) {
@@ -2809,6 +3048,6 @@ void SpatRasterSource::set_names_time_tif(std::vector<std::vector<std::string>> 
 		timestep = "seconds";
 		hasTime = true;
 	}
-	
+
 }
 

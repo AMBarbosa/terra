@@ -22,6 +22,7 @@
 #include <iomanip>
 
 #include "spatRasterMultiple.h"
+#include "spatNetwork.h"
 
 #ifdef useGDAL
 #include "ogr_spatialref.h"
@@ -32,7 +33,13 @@
 
 
 static std::string basename_trunc(const std::string &path, size_t maxlen = 150) {
-	std::string b = basename(path);
+	// Match R's basename(): trailing path separators are stripped before the
+	// last component is taken (so e.g. ".../:psl.zarr/" yields ":psl.zarr").
+	std::string p = path;
+	while (!p.empty() && (p.back() == '/' || p.back() == '\\')) {
+		p.pop_back();
+	}
+	std::string b = basename(p);
 	if (b.size() > maxlen) {
 		b = b.substr(0, maxlen) + "~";
 	}
@@ -45,7 +52,7 @@ static std::string pad_right(const std::string &s, size_t width) {
 }
 
 // Extent coordinates: SpatExtent uses full double precision; SpatVector / SpatRaster use fewer digits.
-static std::string format_extent_double(double v, int significant_digits = 17) {
+static std::string format_double(double v, int significant_digits = 17) {
 	std::ostringstream o;
 	o << std::setprecision(significant_digits) << std::defaultfloat << v;
 	return o.str();
@@ -135,12 +142,21 @@ static std::string df_cell_as_string(const SpatDataFrame &df, size_t row, size_t
 		}
 		case 3: {
 			int8_t b = df.getBvalue(row, col);
+			if (b == 2) return "NA";
 			return b ? "TRUE" : "FALSE";
 		}
 		case 4: {
 			SpatTime_t t = df.getTvalue(row, col);
 			if (t == df.NAT) return "NA";
-			return std::to_string(t);
+			std::string step = df.tv[df.iplace[col]].step;
+			std::vector<int> d = get_date(t);
+			char buf[32];
+			if (step == "days") {
+				std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", d[0], d[1], d[2]);
+			} else {
+				std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d", d[0], d[1], d[2], d[3], d[4], d[5]);
+			}
+			return std::string(buf);
 		}
 		case 5: {
 			SpatFactor f = df.getF(col);
@@ -166,12 +182,16 @@ static void append_spatvector_df_preview(std::ostringstream &s, const SpatDataFr
 	std::vector<std::string> ctypes(nc_show);
 	std::vector<std::vector<std::string>> vals(nr_show, std::vector<std::string>(nc_show));
 
-	static const char *type_str[] = {"<num>", "<int>", "<chr>", "<lgl>", "<time>", "<fact>"};
+	static const char *type_str[] = {"<num>", "<int>", "<chr>", "<lgl>", "", "<fact>"};
 
 	for (size_t j = 0; j < nc_show; j++) {
 		cnames[j] = trunc_cell(df.names[j], mx);
 		size_t it = df.itype[j];
-		ctypes[j] = (it < 6) ? type_str[it] : "<?>";
+		if (it == 4) {
+			ctypes[j] = (df.tv[df.iplace[j]].step == "days") ? "<Date>" : "<POSIXt>";
+		} else {
+			ctypes[j] = (it < 6) ? type_str[it] : "<?>";
+		}
 	}
 
 	for (size_t r = 0; r < nr_show; r++) {
@@ -221,8 +241,8 @@ static void append_spatvector_df_preview(std::ostringstream &s, const SpatDataFr
 
 std::string SpatExtent::show() {
 	std::ostringstream s;
-	s << "SpatExtent : " << format_extent_double(xmin) << ", " << format_extent_double(xmax) << ", "
-	  << format_extent_double(ymin) << ", " << format_extent_double(ymax) << " (xmin, xmax, ymin, ymax)\n";
+	s << "SpatExtent : " << format_double(xmin) << ", " << format_double(xmax) << ", "
+	  << format_double(ymin) << ", " << format_double(ymax) << " (xmin, xmax, ymin, ymax)\n";
 	return s.str();
 }
 
@@ -236,8 +256,8 @@ std::string SpatVector::show() {
 	s << "class       : SpatVector\n";
 	s << "geometry    : " << type() << "\n";
 	s << "dimensions  : " << nr << ", " << nc << "  (geometries, attributes)\n";
-	s << "extent      : " << format_extent_double(e.xmin, 7) << ", " << format_extent_double(e.xmax, 7) << ", "
-	  << format_extent_double(e.ymin, 7) << ", " << format_extent_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
+	s << "extent      : " << format_double(e.xmin, 7) << ", " << format_double(e.xmax, 7) << ", "
+	  << format_double(e.ymin, 7) << ", " << format_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
 
 	if (!source.empty()) {
 		std::string bn = basename_trunc(source);
@@ -267,7 +287,7 @@ std::string SpatVector::show() {
 }
 
 
-std::string SpatRaster::show() {
+std::string SpatRaster::show(bool one_based) {
 	std::ostringstream s;
 	size_t nr = nrow();
 	size_t nc = ncol();
@@ -292,7 +312,7 @@ std::string SpatRaster::show() {
 		}
 	}
 
-	s << "resolution  : " << xres() << ", " << yres() << "  (x, y)\n";
+	s << "resolution  : " << format_double(xres(), 7) << ", " << format_double(yres(), 7) << "  (x, y)\n";
 
 	std::vector<bool> hw = hasWindow();
 	bool any_win = false, all_win = true;
@@ -304,8 +324,8 @@ std::string SpatRaster::show() {
 	} else {
 		s << "extent      : ";
 	}
-	s << format_extent_double(e.xmin, 7) << ", " << format_extent_double(e.xmax, 7) << ", "
-	  << format_extent_double(e.ymin, 7) << ", " << format_extent_double(e.ymax, 7)
+	s << format_double(e.xmin, 7) << ", " << format_double(e.xmax, 7) << ", "
+	  << format_double(e.ymin, 7) << ", " << format_double(e.ymax, 7)
 	  << "  (xmin, xmax, ymin, ymax)\n";
 
 	std::string wkt = getSRS("wkt");
@@ -337,10 +357,10 @@ std::string SpatRaster::show() {
 				srcs[i] = "memory";
 			} else {
 				std::string f = fnames[i];
-				f.erase(std::remove(f.begin(), f.end(), '"'), f.end());
 				if (f.substr(0, 5) != "HDF5:") {
 					f = basename_trunc(f);
 				}
+				f.erase(std::remove(f.begin(), f.end(), '"'), f.end());
 				srcs[i] = f;
 			}
 		}
@@ -353,21 +373,41 @@ std::string SpatRaster::show() {
 		} else if (nsr > 1) {
 			size_t mxsrc = 3;
 			std::vector<size_t> lbs = nlyrBySource();
-			s << "sources     : " << srcs[0];
-			if (lbs[0] != 1) s << " (" << lbs[0] << " layers)";
+			// One line per distinct filename (basename); sum layers from sub-sources
+			std::vector<std::string> u_src;
+			std::vector<size_t> u_lyr;
+			u_src.reserve(nsr);
+			u_lyr.reserve(nsr);
+			for (size_t i = 0; i < nsr; i++) {
+				size_t j = 0;
+				for (; j < u_src.size(); j++) {
+					if (u_src[j] == srcs[i]) {
+						break;
+					}
+				}
+				if (j == u_src.size()) {
+					u_src.push_back(srcs[i]);
+					u_lyr.push_back(lbs[i]);
+				} else {
+					u_lyr[j] += lbs[i];
+				}
+			}
+			const size_t nu = u_src.size();
+			s << "sources     : " << u_src[0];
+			if (nu > 1 && u_lyr[0] != 1) s << " (" << u_lyr[0] << " layers)";
 			s << "\n";
-			for (size_t i = 1; i < std::min(mxsrc, nsr); i++) {
-				s << "              " << srcs[i];
-				if (lbs[i] != 1) s << " (" << lbs[i] << " layers)";
+			for (size_t i = 1; i < std::min(mxsrc, nu); i++) {
+				s << "              " << u_src[i];
+				if (u_lyr[i] != 1) s << " (" << u_lyr[i] << " layers)";
 				s << "\n";
 			}
-			if (nsr > mxsrc) {
-				if (nsr == mxsrc + 1) {
-					s << "              " << srcs[mxsrc];
-					if (lbs[mxsrc] != 1) s << " (" << lbs[mxsrc] << " layers)";
+			if (nu > mxsrc) {
+				if (nu == mxsrc + 1) {
+					s << "              " << u_src[mxsrc];
+					if (u_lyr[mxsrc] != 1) s << " (" << u_lyr[mxsrc] << " layers)";
 					s << "\n";
 				} else {
-					s << "              ... and " << (nsr - mxsrc) << " more sources\n";
+					s << "              ... and " << (nu - mxsrc) << " more sources\n";
 				}
 			}
 		} else {
@@ -379,7 +419,11 @@ std::string SpatRaster::show() {
 			s << "colors " << rgbtype << "  :";
 			for (size_t i = 0; i < rgb.size(); i++) {
 				if (i) s << ",";
-				s << " " << rgb[i];
+				int v = rgb[i];
+				if (one_based) {
+					v++;
+				}
+				s << " " << v;
 			}
 			s << "\n";
 		}
@@ -422,10 +466,10 @@ std::string SpatRaster::show() {
 				s << "varname     : " << varnms[0] << "\n";
 			} else {
 				s << "varnames    : " << varnms[0] << "\n";
-				for (size_t i = 1; i < std::min(nsr, (size_t)3); i++) {
+				for (size_t i = 1; i < std::min(nsr, (size_t)5); i++) {
 					s << "              " << varnms[i] << "\n";
 				}
-				if (nsr > 3) s << "              ...\n";
+				if (nsr > 5) s << "              ...\n";
 			}
 		}
 
@@ -449,16 +493,52 @@ std::string SpatRaster::show() {
 
 			std::vector<std::string> minv(rmin.size());
 			std::vector<std::string> maxv(rmax.size());
+			std::vector<int> vt = getValueType(false);
 			for (size_t i = 0; i < rmin.size(); i++) {
 				if (i < hMM.size() && !hMM[i]) {
 					minv[i] = " ? ";
 					maxv[i] = " ? ";
-				} else if (std::isnan(rmin[i])) {
-					minv[i] = " ? ";
-					maxv[i] = " ? ";
+				} else if ((i < vt.size()) && (vt[i] == 3)) {
+					// boolean
+					minv[i] = std::isnan(rmin[i]) ? "NaN" : (rmin[i] == 0 ? "FALSE" : "TRUE");
+					maxv[i] = std::isnan(rmax[i]) ? "NaN" : (rmax[i] == 0 ? "FALSE" : "TRUE");
 				} else {
-					minv[i] = double_to_string(rmin[i]);
-					maxv[i] = double_to_string(rmax[i]);
+					// known range
+					minv[i] = std::isnan(rmin[i]) ? "NaN" : double_to_string(rmin[i]);
+					maxv[i] = std::isnan(rmax[i]) ? "NaN" : double_to_string(rmax[i]);
+				}
+			}
+
+			// Substitute factor labels for numeric min/max in categorical layers
+			std::vector<SpatCategories> allcats;
+			if (any_f) {
+				allcats = getCategories();
+				for (size_t i = 0; i < isf.size() && i < allcats.size(); i++) {
+					if (!isf[i]) continue;
+					if (i >= hMM.size() || !hMM[i]) continue;
+					if (std::isnan(rmin[i]) || std::isnan(rmax[i])) continue;
+					SpatCategories &cat = allcats[i];
+					if (cat.d.iv.empty() || cat.d.iv[0].empty()) continue;
+					int idx = cat.index;
+					if (idx < 1 || idx >= (int)cat.d.ncol()) continue;
+					long lmin = (long)rmin[i];
+					long lmax = (long)rmax[i];
+					const std::vector<long> &vcol = cat.d.iv[0];
+					size_t r_min = SIZE_MAX, r_max = SIZE_MAX;
+					for (size_t j = 0; j < vcol.size(); j++) {
+						if (r_min == SIZE_MAX && vcol[j] == lmin) r_min = j;
+						if (r_max == SIZE_MAX && vcol[j] == lmax) r_max = j;
+						if (r_min != SIZE_MAX && r_max != SIZE_MAX) break;
+					}
+					if (r_min == SIZE_MAX || r_max == SIZE_MAX) continue;
+					std::vector<std::string> labels = cat.d.as_string((size_t)idx);
+					if (r_min >= labels.size() || r_max >= labels.size()) continue;
+					std::string lab_min = labels[r_min];
+					std::string lab_max = labels[r_max];
+					if (lab_min.size() > 40) lab_min = lab_min.substr(0, 39) + "~";
+					if (lab_max.size() > 40) lab_max = lab_max.substr(0, 39) + "~";
+					minv[i] = lab_min;
+					maxv[i] = lab_max;
 				}
 			}
 
@@ -482,6 +562,20 @@ std::string SpatRaster::show() {
 			}
 
 			if (ncols == 1) {
+				// Single-layer factor: show the active category column
+				// name(s) above 'name', mirroring R/z_show.R's
+				// "categories  : <colnames>" output.
+				if (any_f && !isf.empty() && isf[0] && !allcats.empty()
+						&& allcats[0].index >= 0
+						&& allcats[0].d.ncol() > 1) {
+					const std::vector<std::string> &cnms = allcats[0].d.names;
+					std::string cat_label;
+					for (size_t k = 1; k < cnms.size(); k++) {
+						if (k > 1) cat_label += ", ";
+						cat_label += cnms[k];
+					}
+					s << "categories  : " << cat_label << "\n";
+				}
 				s << "name        : " << ln[0] << "\n";
 				s << "min value   : " << minv[0] << "\n";
 				s << "max value   : " << maxv[0] << "\n";
@@ -521,34 +615,73 @@ std::string SpatRaster::show() {
 			}
 
 		} else {
-			// no min/max: just names (and possibly units)
+			// no min/max: just names (and possibly units); align units to name columns like .show_rast
+			auto join_cells = [](const std::vector<std::string> &v) {
+				std::string out;
+				for (size_t i = 0; i < v.size(); i++) {
+					if (i) out += ", ";
+					out += v[i];
+				}
+				return out;
+			};
 			if (nl == 1) {
 				s << "name        : " << ln[0] << "\n";
 			} else {
-				std::string nj;
-				for (size_t i = 0; i < ln.size(); i++) {
-					if (i) nj += ", ";
-					nj += ln[i];
+				const size_t ncols = ln.size();
+				std::vector<std::string> ln_pad = ln;
+				if (hasunits) {
+					std::vector<std::string> utsu;
+					for (auto &u : uts) {
+						if (std::find(utsu.begin(), utsu.end(), u) == utsu.end()) {
+							utsu.push_back(u);
+						}
+					}
+					if (utsu.size() == 1) {
+						// Same as .show_rast: one unit string (size line already gives nlyr)
+						std::vector<size_t> w(ncols);
+						for (size_t i = 0; i < ncols; i++) {
+							w[i] = ln[i].size();
+						}
+						for (size_t i = 0; i < ncols; i++) {
+							ln_pad[i] = pad_right(ln[i], w[i]);
+						}
+						s << "names       : " << join_cells(ln_pad) << "\n";
+						s << "unit        : " << utsu[0] << "\n";
+					} else {
+						std::vector<std::string> uts_row = uts;
+						if (nl > mnr) {
+							uts_row.resize(mnr);
+							uts_row.push_back("...");
+						}
+						std::vector<size_t> w(ncols);
+						for (size_t i = 0; i < ncols; i++) {
+							w[i] = ln[i].size();
+							if (i < uts_row.size()) {
+								w[i] = std::max(w[i], uts_row[i].size());
+							}
+						}
+						for (size_t i = 0; i < ncols; i++) {
+							ln_pad[i] = pad_right(ln[i], w[i]);
+						}
+						s << "names       : " << join_cells(ln_pad) << "\n";
+						std::vector<std::string> uts_pad(ncols);
+						for (size_t i = 0; i < ncols; i++) {
+							uts_pad[i] = pad_right(i < uts_row.size() ? uts_row[i] : "", w[i]);
+						}
+						s << "unit        : " << join_cells(uts_pad) << "\n";
+					}
+				} else {
+					s << "names       : " << join_cells(ln_pad) << "\n";
 				}
-				s << "names       : " << nj << "\n";
 			}
-			if (hasunits) {
+			if (hasunits && nl == 1) {
 				std::vector<std::string> utsu;
 				for (auto &u : uts) {
-					if (std::find(utsu.begin(), utsu.end(), u) == utsu.end())
+					if (std::find(utsu.begin(), utsu.end(), u) == utsu.end()) {
 						utsu.push_back(u);
-				}
-				if (utsu.size() == 1) {
-					s << "unit        : " << utsu[0] << "\n";
-				} else {
-					if (nl > mnr) { uts.resize(mnr); uts.push_back("..."); }
-					std::string uj;
-					for (size_t i = 0; i < uts.size(); i++) {
-						if (i) uj += ", ";
-						uj += uts[i];
 					}
-					s << "unit        : " << uj << "\n";
 				}
+				s << "unit        : " << (utsu.empty() ? uts[0] : utsu[0]) << "\n";
 			}
 		}
 	}
@@ -672,8 +805,8 @@ std::string SpatRasterStack::show() {
 	s << "resolution  : " << xy[0] << ", " << xy[1] << "  (x, y)\n";
 
 	SpatExtent e = getExtent();
-	s << "extent      : " << format_extent_double(e.xmin, 7) << ", " << format_extent_double(e.xmax, 7) << ", "
-	  << format_extent_double(e.ymin, 7) << ", " << format_extent_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
+	s << "extent      : " << format_double(e.xmin, 7) << ", " << format_double(e.xmax, 7) << ", "
+	  << format_double(e.ymin, 7) << ", " << format_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
 
 	std::string wkt = getSRS("wkt");
 	std::string proj4 = getSRS("proj4");
@@ -755,8 +888,8 @@ std::string SpatRasterCollection::show() {
 	}
 
 	SpatExtent e = getExtent();
-	s << "extent      : " << format_extent_double(e.xmin, 7) << ", " << format_extent_double(e.xmax, 7) << ", "
-	  << format_extent_double(e.ymin, 7) << ", " << format_extent_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
+	s << "extent      : " << format_double(e.xmin, 7) << ", " << format_double(e.xmax, 7) << ", "
+	  << format_double(e.ymin, 7) << ", " << format_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
 
 	if (!ds.empty()) {
 		std::string wkt = ds[0].getSRS("wkt");
@@ -843,8 +976,8 @@ std::string SpatVectorProxy::show() {
 	s << " class       : SpatVectorProxy\n";
 	s << " geometry    : " << v.type() << "\n";
 	s << " dimensions  : " << nr << ", " << nc << "  (geometries, attributes)\n";
-	s << " extent      : " << format_extent_double(e.xmin, 7) << ", " << format_extent_double(e.xmax, 7) << ", "
-	  << format_extent_double(e.ymin, 7) << ", " << format_extent_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
+	s << " extent      : " << format_double(e.xmin, 7) << ", " << format_double(e.xmax, 7) << ", "
+	  << format_double(e.ymin, 7) << ", " << format_double(e.ymax, 7) << "  (xmin, xmax, ymin, ymax)\n";
 
 	std::string bn = basename_trunc(v.source);
 	std::string lyr = v.source_layer;
@@ -863,6 +996,34 @@ std::string SpatVectorProxy::show() {
 
 	if (nc > 0) {
 		append_spatvector_df_preview(s, v.df, 0);
+	}
+
+	return s.str();
+}
+
+
+std::string SpatNetwork::show() {
+	std::ostringstream s;
+	size_t nn = nnodes();
+	size_t ne = nedges();
+	s << "class       : SpatNetwork\n";
+	s << "type        : " << (directed ? "directed" : "undirected")
+	  << ", " << (weighted ? "weighted" : "unweighted") << "\n";
+	s << "dimensions  : " << nn << ", " << ne << "  (nodes, edges)\n";
+	if (nn > 0) {
+		s << "extent      : "
+		  << format_double(extent.xmin, 7) << ", "
+		  << format_double(extent.xmax, 7) << ", "
+		  << format_double(extent.ymin, 7) << ", "
+		  << format_double(extent.ymax, 7)
+		  << "  (xmin, xmax, ymin, ymax)\n";
+	}
+	std::string wkt   = srs.get("wkt");
+	std::string proj4 = srs.get("proj4");
+	s << "coord. ref. : " << crs_description(wkt, proj4) << "\n";
+
+	if (edge_df.ncol() > 0) {
+		append_spatvector_df_preview(s, edge_df, 0);
 	}
 
 	return s.str();

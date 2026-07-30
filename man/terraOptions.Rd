@@ -37,6 +37,10 @@ The following options are available.
 \bold{verbose} - logical. If \code{TRUE} debugging info is printed for some functions.
 
 \bold{tolerance} - numeric. Difference in raster extent (expressed as the fraction of the raster resolution) that can be ignored when comparing alignment of rasters.
+
+\bold{parallel} - logical. If \code{TRUE} multiple threads are used (using the TBB library) where that was implemented (including distance calculations on \code{SpatVector} and some \code{focal} computations. Use \code{libVersion} to check whether TBB support is available.
+
+\bold{threads} - non-negative integer. Cap on the number of threads used by parallel computation (when \code{parallel=TRUE}), by GDAL warp (in \code{project} and \code{resample} when \code{threads=TRUE}), and for compressed GeoTIFF writing. The default is \code{16}. This cap avoids run-away thread counts on machines with very many cores; more threads rarely help as most parallel computations are limited by memory bandwidth. No more threads than the number of available CPUs are used on machines with fewer CPUs. Set it to \code{0} to remove the cap ("use all CPUs"). Lower values are useful to leave room for other processes, or when running multiple R processes at the same time).
 }
 
 \note{
@@ -55,6 +59,7 @@ list. Invisibly if \code{print=TRUE}
 terraOptions()
 terraOptions(memfrac=0.5, tempdir = "c:/temp")
 terraOptions(progress=10)
+terraOptions(parallel=TRUE, threads=4)   # use TBB, capped at 4 threads
 terraOptions()
 }
 

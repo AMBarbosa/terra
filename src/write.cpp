@@ -203,7 +203,7 @@ bool SpatRaster::writeStart(SpatOptions &opt, const std::vector<std::string> src
 			}
 		}
 	} 
-	
+
 	size_t nl = nlyr();
 	bs = getBlockSize(opt);
 	if (!filename.empty()) {
@@ -374,7 +374,7 @@ bool SpatRaster::writeValuesRectRast(SpatRaster &r, SpatOptions& opt) {
 	size_t nrows = row2-row1+1;
 	size_t startrow = row1;
 	size_t startcol = col1;
-	
+
 	if ((startrow + nrows) > nrow()) {
 		setError("incorrect start row and/or nrows value");
 		return false;
@@ -521,7 +521,7 @@ bool SpatRaster::setValues(std::vector<double> &v, SpatOptions &opt) {
 void SpatRaster::setRange(SpatOptions &opt, bool force) {
 
 	for (size_t i=0; i<nsrc(); i++) {
-		if (source[i].hasRange[0] && (!force)) continue;
+		if (source[i].getHasRange(0) && (!force)) continue;
 		if (source[i].memory) {
 			source[i].setRange();
 		} else {

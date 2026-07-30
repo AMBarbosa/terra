@@ -16,10 +16,10 @@
 \alias{extract,SpatRasterDataset,ANY-method}
 
 
-\title{Extract values from a SpatRaster}
+\title{Extract values from a SpatRaster or polygon SpatVector}
 
 \description{
-Extract values from a SpatRaster for a set of locations. The locations can be a SpatVector (points, lines, polygons), a data.frame or matrix with (x, y) or (longitude, latitude -- in that order!) coordinates, or a vector with cell numbers.  
+Extract values from a SpatRaster or a polygon SpatVector for a set of locations. The locations can be a SpatVector (points, lines, polygons), a data.frame or matrix with (x, y) or (longitude, latitude -- in that order!) coordinates, or a vector with cell numbers.  
 
 When argument \code{y} is a \code{SpatVector} the first column has the ID (record number) of the \code{SpatVector} used (unless you set \code{ID=FALSE}).
 
@@ -43,7 +43,7 @@ Alternatively, you can use \code{\link{zonal}} after using \code{\link{rasterize
 \arguments{
 \item{x}{SpatRaster or SpatVector of polygons}
 \item{y}{SpatVector (points, lines, or polygons). Alternatively, for points, a 2-column matrix or data.frame (x, y) or (lon, lat). Or a vector with cell numbers}
-\item{fun}{function to summarize the extracted data by line or polygon geometry. You can use \code{fun=table} to tabulate raster values for each line or polygon geometry. If \code{weights=TRUE} or \code{exact=TRUE} only \code{mean}, \code{sum}, \code{min}, \code{max} and \code{table} are accepted --- and these functions will consider the fraction of a cell that is covered when computing the mean or the sum). Ignored if \code{y} has point geometry}
+\item{fun}{function to summarize the extracted data by line or polygon geometry, such as \code{sum}, as well as terra built-in functions \code{"isNA"}, and \code{"notNA"} to get the count of cells that are (not) \code{NA}, and \code{"sum2"} (the sum of squares). You can use \code{fun=table} to tabulate raster values for each line or polygon geometry. If \code{weights=TRUE} or \code{exact=TRUE} only \code{mean}, \code{sum}, \code{min}, \code{max} and \code{table} are accepted --- and these functions consider the fraction of a cell that is covered when computing the mean or the sum). Ignored if \code{y} has point geometry. }
 \item{method}{character. method for extracting values with points ("simple" or "bilinear"). With "simple" values for the cell a point falls in are returned. With "bilinear" the returned values are interpolated from the values of the four nearest raster cells}
 \item{cells}{logical. If \code{TRUE} the cell numbers are also returned, unless \code{fun} is not \code{NULL}. Also see \code{\link{cells}}}
 \item{xy}{logical. If \code{TRUE} the coordinates of the cells are also returned, unless \code{fun} is not \code{NULL}. See \code{\link{xyFromCell}}}

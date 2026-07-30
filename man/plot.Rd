@@ -67,7 +67,7 @@ There is a separate help file for plotting a \code{\link[=plot,SpatGraticule,mis
  
  \item{plg}{list with parameters for drawing the legend. See the arguments for \code{\link[graphics]{legend}}. 
  
-  A legend can be placed with placed by specifying arguments \code{x} and \code{y}. For a continuous legend \code{y} can have two values. \code{x} can also be a SpatExtent. Furthermore, \code{x} can have be a keyword such "topleft" and "bottomright" to place the legend at these locations inside the map rectangle. For a continuous legend, only the placement keywords "left", "right", "top", "bottom", "topright", "bottomright" are recognized; and when using these keywords, the legend is placed outside of the map rectangle. The placement of the legend can be altered with argument \code{nudge} that move the location in the directions specified with one value (x direction) or two values (x, y). For a continuous legend it can also have four values (xmin, xmax, ymin, ymax). When supplying coordinates, use \code{horiz=TRUE} to get a horizontal legend.
+  A legend can be placed by specifying arguments \code{x} and \code{y}. For a continuous legend \code{y} can have two values. \code{x} can also be a SpatExtent. Furthermore, \code{x} can be a keyword such "topleft" and "bottomright" to place the legend at these locations inside the map rectangle. For a continuous legend, only the placement keywords "left", "right", "top", "bottom", "topright", "bottomright" are recognized; and when using these keywords, the legend is placed outside of the map rectangle. The placement of the legend can be altered with argument \code{nudge} that moves the location in the directions specified with one value (x direction) or two values (x, y). For a continuous legend it can also have four values (xmin, xmax, ymin, ymax). When supplying coordinates, use \code{horiz=TRUE} to get a horizontal legend.
     
   Additional parameters for continuous legends include: 
 
@@ -79,13 +79,15 @@ There is a separate help file for plotting a \code{\link[=plot,SpatGraticule,mis
 	\item \code{tick} One of these partially matched values: "through", "in", "middle", "out", or "none", to choose a tickmark placement/length that is different from the default "throughout". 
 	\item \code{tick.length} to change the tickmark length (default = 1). Only relevant when \code{tick} is "throughout" or "out".
 	\item \code{tick.col}, \code{tick.box.col} and \code{tick.lwd} to change the appearance of the tickmarks
+	\item \code{title} add a legend title
 	\item \code{title.srt} to rotate the legend title
 	\item \code{title.x} and \code{title.y} to place the legend title at specific coordinates  
+	\item \code{bg} background color behind the legend (e.g. \code{"white"}) for visibility when drawn on top of a map
   }}
   
   \item{pax}{list with parameters for drawing axes. See the arguments for \code{\link{axis}}. Additional parameters include: 
   \itemize{
-    \item \code{side} numeric to indicate for which of the axes to draw a line. Default is \code{1:4} (only noticble when \code{box=FALSE}. 
+    \item \code{side} numeric to indicate for which of the axes to draw a line. Default is \code{1:4} (only noticeable when \code{box=FALSE}). 
     \item \code{tick} numeric to indicate for which of the axes to draw tickmarks. Default is \code{1:2} unless \code{side} is changed, in which case the default is the same as \code{side}
     \item \code{lab} numeric to indicate for which of the axes to draw labels. Default is \code{1:2} unless \code{side} is changed, in which case the default is the same as \code{side}
     \item \code{xat}/\code{yat} numeric with the values at which tickmarks are to be drawn on the horizontal/vertical axis.

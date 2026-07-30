@@ -20,6 +20,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// open_file_lim
+std::vector<size_t> open_file_lim();
+RcppExport SEXP _terra_open_file_lim() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(open_file_lim());
+    return rcpp_result_gen;
+END_RCPP
+}
 // proj_conf_test
 bool proj_conf_test();
 RcppExport SEXP _terra_proj_conf_test() {
@@ -342,6 +352,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// proj_pipelines
+Rcpp::List proj_pipelines(std::string source_crs, std::string target_crs, std::string authority, std::vector<double> AOI, std::string use, std::string grid_availability, double desired_accuracy, bool strict_containment, bool axis_order_authority_compliant);
+RcppExport SEXP _terra_proj_pipelines(SEXP source_crsSEXP, SEXP target_crsSEXP, SEXP authoritySEXP, SEXP AOISEXP, SEXP useSEXP, SEXP grid_availabilitySEXP, SEXP desired_accuracySEXP, SEXP strict_containmentSEXP, SEXP axis_order_authority_compliantSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type source_crs(source_crsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type target_crs(target_crsSEXP);
+    Rcpp::traits::input_parameter< std::string >::type authority(authoritySEXP);
+    Rcpp::traits::input_parameter< std::vector<double> >::type AOI(AOISEXP);
+    Rcpp::traits::input_parameter< std::string >::type use(useSEXP);
+    Rcpp::traits::input_parameter< std::string >::type grid_availability(grid_availabilitySEXP);
+    Rcpp::traits::input_parameter< double >::type desired_accuracy(desired_accuracySEXP);
+    Rcpp::traits::input_parameter< bool >::type strict_containment(strict_containmentSEXP);
+    Rcpp::traits::input_parameter< bool >::type axis_order_authority_compliant(axis_order_authority_compliantSEXP);
+    rcpp_result_gen = Rcpp::wrap(proj_pipelines(source_crs, target_crs, authority, AOI, use, grid_availability, desired_accuracy, strict_containment, axis_order_authority_compliant));
+    return rcpp_result_gen;
+END_RCPP
+}
 // removeDriver
 void removeDriver(std::vector<std::string> d);
 RcppExport SEXP _terra_removeDriver(SEXP dSEXP) {
@@ -454,6 +483,7 @@ RcppExport SEXP _rcpp_module_boot_spat();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_terra_have_TBB", (DL_FUNC) &_terra_have_TBB, 0},
+    {"_terra_open_file_lim", (DL_FUNC) &_terra_open_file_lim, 0},
     {"_terra_proj_conf_test", (DL_FUNC) &_terra_proj_conf_test, 0},
     {"_terra_proj_version", (DL_FUNC) &_terra_proj_version, 0},
     {"_terra_hex2rgb", (DL_FUNC) &_terra_hex2rgb, 1},
@@ -483,6 +513,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_terra_get_proj_search_paths", (DL_FUNC) &_terra_get_proj_search_paths, 0},
     {"_terra_set_proj_search_paths", (DL_FUNC) &_terra_set_proj_search_paths, 2},
     {"_terra_PROJ_network", (DL_FUNC) &_terra_PROJ_network, 2},
+    {"_terra_proj_pipelines", (DL_FUNC) &_terra_proj_pipelines, 9},
     {"_terra_removeDriver", (DL_FUNC) &_terra_removeDriver, 1},
     {"_terra_pearson_cor", (DL_FUNC) &_terra_pearson_cor, 3},
     {"_terra_weighted_pearson_cor", (DL_FUNC) &_terra_weighted_pearson_cor, 4},

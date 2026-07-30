@@ -14,10 +14,12 @@ Change the coordinate reference system ("project") of a SpatVector, SpatRaster o
 }
 
 \usage{
-\S4method{project}{SpatVector}(x, y, partial = FALSE)
-
 \S4method{project}{SpatRaster}(x, y, method, mask=FALSE, align_only=FALSE, res=NULL, 
-	origin=NULL, threads=FALSE, filename="", ..., use_gdal=TRUE, by_util = FALSE)
+	origin=NULL, threads=FALSE, use_gdal=TRUE, by_util=FALSE, pipeline="", 
+	AOI=NULL, desired_accuracy=-1.0, allow_approx=TRUE, filename="", ...)
+
+\S4method{project}{SpatVector}(x, y, partial=FALSE, pipeline="", AOI=NULL,
+    desired_accuracy=-1.0, allow_approx=TRUE)
 
 \S4method{project}{SpatExtent}(x, from, to)
 
@@ -33,7 +35,7 @@ Change the coordinate reference system ("project") of a SpatVector, SpatRaster o
   If \code{x} is a SpatVector, you can provide a crs definition as discussed above, or any other object from which such a crs can be extracted with \code{\link{crs}}}
 
   \item{partial}{logical. If \code{TRUE}, geometries that can only partially be represented in the output crs are included in the output}
-  
+
   \item{method}{character. Method used for estimating the new cell values of a SpatRaster. One of: 
   
 	\code{bilinear}: bilinear interpolation (3x3 cell window). This is used by default if the first layer of \code{x} is not categorical
@@ -65,15 +67,23 @@ Change the coordinate reference system ("project") of a SpatVector, SpatRaster o
 
   \item{origin}{numeric. Can be used to set the origin of the output raster if \code{y} is a CRS}
   
-  \item{threads}{logical. If \code{TRUE} multiple threads are used (faster for large files)}
-
-  \item{filename}{character. Output filename}
-  
-  \item{...}{additional arguments for writing files as in \code{\link{writeRaster}}}
+  \item{threads}{logical or positive integer. If \code{TRUE}, multiple threads are used (faster for large files), no more than the "threads" setting of \code{\link{terraOptions}}. A number sets the thread count for this call directly}
 
   \item{use_gdal}{logical. If \code{TRUE} the GDAL-warp algorithm is used. Otherwise, a slower internal algorithm is used that may be more accurate if there is much variation in the cell sizes of the output raster. Only the \code{near} and \code{bilinear} algorithms are available for the internal algorithm}
 
   \item{by_util}{logical. If \code{TRUE} and \code{gdal=TRUE}, the GDAL warp utility is used}
+
+  \item{pipeline}{character. A PROJ pipeline string to use for the coordinate transformation instead of letting GDAL select one automatically. You can use \code{\link{proj_pipelines}} to find available pipelines. When a pipeline is set, \code{y} is still used to set the output CRS}
+
+  \item{AOI}{SpatExtent or object that has a SpatExtent to set the area of interest for the transformation. This is used to select the most appropriate transformation pipeline}
+
+  \item{desired_accuracy}{numeric. Only use transformations with at least this accuracy (in metres). Use \code{-1} (the default) for no constraint. Requires GDAL >= 3.3}
+
+  \item{allow_approx}{logical. If \code{FALSE}, only use transformations with known accuracy (no "ballpark" transformations). Requires GDAL >= 3.3}
+  
+  \item{filename}{character. Output filename}
+  
+  \item{...}{additional arguments for writing files as in \code{\link{writeRaster}}}
 
   \item{from}{character. Coordinate reference system of \code{x}}
 
@@ -85,7 +95,8 @@ Change the coordinate reference system ("project") of a SpatVector, SpatRaster o
 SpatVector or SpatRaster
 }
 
-\seealso{\code{\link{crs}}, \code{\link{resample}}}
+\seealso{\code{\link{crs}}, \code{\link{resample}}, \code{\link{warp_scale}}, \code{\link{proj_pipelines}} and \code{\link{projNetwork}} to enable or disable PROJ network access for datum grid downloads.}
+
 
 \note{
 The PROJ.4 notation of coordinate reference systems has been partly deprecated in the GDAL/PROJ library that is used by this function. You can still use this notation, but *only* with the WGS84 datum. Other datums are silently ignored. 
@@ -119,6 +130,7 @@ project(v, "+proj=moll")
 project(v, "EPSG:2169")
 }
 }
+
 
 \keyword{spatial}
 

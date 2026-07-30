@@ -12,7 +12,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
-// You should have received a copy of the GNU General Public License
+// You should have received a copy of the GNU General Public LicenseT
 // along with spat. If not, see <http://www.gnu.org/licenses/>.
 
 #include "spatVector.h"
@@ -201,10 +201,10 @@ void SpatGeom::computeExtent() {
 	extent.ymin = *std::min_element(parts[0].y.begin(), parts[0].y.end());
 	extent.ymax = *std::max_element(parts[0].y.begin(), parts[0].y.end());
 	for (size_t i=1; i<parts.size(); i++) {
-		extent.xmin = std::min(extent.xmin, *std::min_element(parts[0].x.begin(), parts[0].x.end()));
-		extent.xmax = std::max(extent.xmin, *std::max_element(parts[0].x.begin(), parts[0].x.end()));
-		extent.ymin = std::min(extent.xmin, *std::min_element(parts[0].y.begin(), parts[0].y.end()));
-		extent.ymax = std::max(extent.xmin, *std::max_element(parts[0].y.begin(), parts[0].y.end()));
+		extent.xmin = std::min(extent.xmin, *std::min_element(parts[i].x.begin(), parts[i].x.end()));
+		extent.xmax = std::max(extent.xmax, *std::max_element(parts[i].x.begin(), parts[i].x.end()));
+		extent.ymin = std::min(extent.ymin, *std::min_element(parts[i].y.begin(), parts[i].y.end()));
+		extent.ymax = std::max(extent.ymax, *std::max_element(parts[i].y.begin(), parts[i].y.end()));
 	}
 }
 
@@ -224,6 +224,10 @@ SpatVector::SpatVector() {
 }
 
 SpatVector::SpatVector(SpatGeom g) {
+	extent.xmin = NAN;
+	extent.xmax = NAN;
+	extent.ymin = NAN;
+	extent.ymax = NAN;
 	addGeom(g);
 }
 
@@ -539,6 +543,23 @@ size_t SpatVector::nparts(bool holes) {
 	return totnp;
 }
 
+size_t SpatVector::nnodes(bool holes) {
+	size_t totn = 0;
+	size_t ng = geoms.size();
+	for (size_t i=0; i<ng; i++) {
+		size_t np = geoms[i].parts.size();
+		for (size_t j=0; j<np; j++) {
+			totn += geoms[i].parts[j].x.size();
+			if (holes) {
+				for (size_t k=0; k<geoms[i].parts[j].nHoles(); k++) {
+					totn += geoms[i].parts[j].holes[k].x.size();
+				}
+			}
+		}
+	}
+	return totn;
+}
+
 
 std::vector<std::vector<double>> SpatVector::coordinates() {
 	std::vector<std::vector<double>> out(2);
@@ -766,7 +787,7 @@ void SpatVector::setGeometry(std::string type, std::vector<size_t> gid, std::vec
 	std::vector<double> X, Y;
 	SpatGeom g;
 	g.gtype = getGType(type);
-	
+
 	for (size_t i=0; i<gid.size(); i++) {
 		if ((lastgeom != gid[i]) || (lastpart != part[i]) || (isPoly && (lasthole != hole[i]))) {
 			if (X.empty()) {
@@ -1093,7 +1114,7 @@ SpatVector SpatVector::as_points(bool multi, bool skiplast) {
 		v.addWarning("input has no geometries");
 		return v;
 	}
-	
+
 	if (geoms[0].gtype == points) {
 		SpatVector v = *this;
 		v.addWarning("returning a copy");
@@ -1227,8 +1248,8 @@ void remove_duplicates(std::vector<double> &x, std::vector<double> &y, int digit
 		vecround(x, digits);
 		vecround(y, digits);
 	}
-	size_t start = x.size() - 1;
-	for (size_t i=start; i>0; i--) {
+	if (x.size() < 2) return;
+	for (size_t i = x.size() - 1; i > 0; i--) {
 		if ((x[i] == x[i-1]) && (y[i] == y[i-1])) {
 			x.erase(x.begin()+i);
 			y.erase(y.begin()+i);
@@ -1238,18 +1259,35 @@ void remove_duplicates(std::vector<double> &x, std::vector<double> &y, int digit
 
 
 void SpatGeom::remove_duplicate_nodes(int digits) {
-	size_t start = parts.size()-1;
-	for (size_t i=start; i>0; i--) {
-		remove_duplicates(parts[i].x, parts[i].y, digits);
-		if (parts[i].x.size() < 4) {
-			parts.erase(parts.begin()+i);
+	if (parts.empty()) return;
+	// Each geometry type has a different minimum-vertex requirement
+	// for a part. We must not silently drop valid lines (which only
+	// need 2 vertices) just because polygons need 4 to close a ring.
+	size_t min_part = 1;
+	if (gtype == lines)         min_part = 2;
+	else if (gtype == polygons) min_part = 4;
+
+	// Walk the parts list backward so erases below `i` don't shift the
+	// iteration, and start at parts.size()-1 inclusive (down to 0). We
+	// can't use a size_t loop for that (it would underflow), so iterate
+	// `i = parts.size() ... 1` and use `idx = i - 1`.
+	for (size_t i = parts.size(); i > 0; i--) {
+		size_t idx = i - 1;
+		remove_duplicates(parts[idx].x, parts[idx].y, digits);
+		if (parts[idx].x.size() < min_part) {
+			parts.erase(parts.begin() + idx);
 			continue;
 		}
-		if (parts[i].hasHoles()) {
-			for (size_t j=0; j < parts[i].nHoles(); j++) {
-				remove_duplicates(parts[i].holes[j].x, parts[i].holes[j].y, digits);
-				if (parts[i].holes[j].x.size() < 4) {
-					parts[i].holes.erase(parts[i].holes.begin()+j);
+		if (parts[idx].hasHoles()) {
+			// Same backward-iteration pattern for the holes list. A
+			// hole is always a ring, so the threshold is 4 regardless
+			// of the outer geometry type.
+			for (size_t k = parts[idx].nHoles(); k > 0; k--) {
+				size_t hidx = k - 1;
+				remove_duplicates(parts[idx].holes[hidx].x,
+				                  parts[idx].holes[hidx].y, digits);
+				if (parts[idx].holes[hidx].x.size() < 4) {
+					parts[idx].holes.erase(parts[idx].holes.begin() + hidx);
 				}
 			}
 		}

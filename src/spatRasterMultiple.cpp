@@ -30,7 +30,6 @@ bool SpatRasterCollection::empty() { return ds.empty(); }
 void SpatRasterCollection::resize(size_t n) { ds.resize(n); }
 
 void SpatRasterCollection::push_back(SpatRaster r, std::string name) { 
-
 /*
 	if (ds.size() == 0) {
 		extent = r.getExtent();
@@ -39,9 +38,30 @@ void SpatRasterCollection::push_back(SpatRaster r, std::string name) {
 	}
 */
 	ds.push_back(r);
-	names.push_back(name);
-	
+	names.push_back(name);	
 }
+
+
+bool SpatRasterCollection::readStop() {
+	for (size_t i = 0; i < ds.size(); i++) {
+		ds[i].readStop();
+	}
+	return true;
+}
+
+bool SpatRasterCollection::readStart() {
+	for (size_t i = 0; i < ds.size(); i++) {
+		if (!ds[i].readStart()) {
+			setError(ds[i].getError());
+			for (size_t j = 0; j < i; j++) ds[j].readStop();
+			return false;
+		}
+	}
+	return true;
+}
+
+
+
 
 SpatExtent SpatRasterCollection::getExtent() { 
 	SpatExtent e;
@@ -59,7 +79,7 @@ SpatExtent SpatRasterCollection::getExtent() {
 
 std::vector<int> SpatRasterCollection::getValueType(bool unique) {
 	std::vector<int> d;
-	
+
 	for (size_t i=0; i<ds.size(); i++) {
 		std::vector<int> dd = ds[i].getValueType(false);		
 		d.insert(d.end(), dd.begin(), dd.end());
@@ -112,7 +132,7 @@ std::string SpatRasterCollection::make_vrt(std::vector<std::string> options, boo
 
 	std::vector<std::string> ff;
 	ff.reserve(size());
-	
+
 	SpatOptions xopt(opt);
 	for (size_t i=0; i<size(); i++) {
 //		if (!ds[i].hasValues()) continue;
@@ -271,7 +291,7 @@ std::vector<std::string> SpatRasterCollection::filenames() {
 	}
 	return names;
 };
-		
+
 
 
 bool SpatRasterCollection::addTag(std::string name, std::string value, std::string domain) {
@@ -416,16 +436,26 @@ std::vector<std::string> SpatRasterStack::filenames() {
 	return names;
 };
 
+//bool SpatRasterStack::readStart() {
+//	for (auto& x : ds) { if (!x.readStart()) return false; }
+//	return true;
+//}
+
 bool SpatRasterStack::readStart() {
-	for (auto& x : ds) { if (!x.readStart()) return false; }
+	for (size_t i=0; i<ds.size(); i++) {
+		if (!ds[i].readStart()) {
+			for (size_t j=0; j<i; j++) ds[j].readStop();
+			return false;
+		}
+	}
 	return true;
 }
-			
+
 bool SpatRasterStack::readStop() {
 	for (auto& x : ds) { if (!x.readStop()) return false; }
 	return true;
 }
-	
+
 bool SpatRasterStack::readAll() {
   for (auto& x : ds) { if (!x.readAll()) return false; }
   return true;
@@ -466,7 +496,7 @@ std::string SpatRasterStack::getSRS(std::string s) {
 		return ds[0].getSRS(s);
 	}
 }
-		
+
 bool SpatRasterStack::push_back(SpatRaster r, std::string name, std::string longname, std::string unit, bool warn) { 
 	if (!ds.empty()) {
 		if (!r.compare_geom(ds[0], false, false, true, true, true, false, true)) {
@@ -495,7 +525,7 @@ bool SpatRasterStack::push_back(SpatRaster r, std::string name, std::string long
 	}
 	return true;
 };
-		
+
 size_t SpatRasterStack::size() { return ds.size(); }
 bool SpatRasterStack::empty() { return ds.empty(); }
 void SpatRasterStack::resize(size_t n) { 
@@ -566,7 +596,7 @@ void SpatRasterStack::replace(size_t i, SpatRaster x, bool setname) {
 		setError("extent does not match");
 		return;
 	}
-	
+
 	ds[i] = x;
 //  for clause for #1604
 	if (setname) {
