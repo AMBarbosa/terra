@@ -8,12 +8,14 @@
 #include "sort.h"
 
 #include "gdal_priv.h"
+#include "gdal_compat.h"
 #include "gdalio.h"
 #include "ogr_spatialref.h"
 
 #include <unordered_map>
 #include <list>
 #include <functional>
+#include <cstring>
 #include <string>
 #include <thread>
 #include <atomic>
@@ -71,12 +73,21 @@ std::vector<size_t> open_file_lim() {
 
 // [[Rcpp::export(name = ".proj_conf_test")]]
 bool proj_conf_test() {
+#ifdef projh
     PJ *crs = proj_create(nullptr, "EPSG:4326");
     if (!crs) {
         return false;
     }
     proj_destroy(crs);
     return true;
+#else
+	projPJ pj = pj_init_plus("+proj=longlat +datum=WGS84");
+	if (pj == nullptr) {
+		return false;
+	}
+	pj_free(pj);
+	return true;
+#endif
 }
 
 
@@ -273,6 +284,14 @@ std::string gdal_version() {
 	return s;
 }
 
+// [[Rcpp::export(name = ".gdal_build_info")]]
+std::string gdal_build_info() {
+	const char* what = "BUILD_INFO";
+	const char* x = GDALVersionInfo(what);
+	std::string s = (std::string) x;
+	return s;
+}
+
 // [[Rcpp::export(name = ".geos_version")]]
 std::string geos_version(bool runtime = false, bool capi = false) {
 	if (runtime)
@@ -417,6 +436,12 @@ static bool handle_proj_noise(const char *msg, int err_no) {
 	return false;
 }
 
+// cosmetic noise from broken file metadata #2161
+static bool is_multidim_convert_noise(const char *msg) {
+	if (msg == NULL) return false;
+	return std::strstr(msg, "Array data type is not convertible to buffer data type") != NULL;
+}
+
 // Replay any messages that were queued from GDAL worker threads. Must only be
 // called on the main thread (from the error handlers below).
 static void drain_offthread_messages() {
@@ -439,12 +464,12 @@ static void __err_warning(CPLErr eErrClass, int err_no, const char *msg) {
             break;
         case 1:
         case 2:
-            if (!handle_proj_noise(msg, err_no)) {
+            if (!handle_proj_noise(msg, err_no) && !is_multidim_convert_noise(msg)) {
                 warningNoCall("%s (GDAL %d)", msg, err_no);
             }
             break;
         case 3:
-            if (!handle_proj_noise(msg, err_no)) {
+            if (!handle_proj_noise(msg, err_no) && !is_multidim_convert_noise(msg)) {
                 warningNoCall("%s (GDAL error %d)", msg, err_no);
             }
             break;
@@ -452,7 +477,7 @@ static void __err_warning(CPLErr eErrClass, int err_no, const char *msg) {
             stopNoCall("%s (GDAL unrecoverable error %d)", msg, err_no);
             break;
         default:
-            if (!handle_proj_noise(msg, err_no)) {
+            if (!handle_proj_noise(msg, err_no) && !is_multidim_convert_noise(msg)) {
                 warningNoCall("%s (GDAL error class %d, #%d)", msg, eErrClass, err_no);
             }
             break;
@@ -469,7 +494,7 @@ static void __err_error(CPLErr eErrClass, int err_no, const char *msg) {
         case 2:
             break;
         case 3:
-            if (!handle_proj_noise(msg, err_no)) {
+            if (!handle_proj_noise(msg, err_no) && !is_multidim_convert_noise(msg)) {
                 warningNoCall("%s (GDAL error %d)", msg, err_no);
             }
             break;
@@ -512,15 +537,18 @@ void set_gdal_warnings(int level) {
 	// Called from gdal_init() at package load, i.e. on R's main thread before
 	// any GDAL operation (and thus before any GDAL worker thread) can run.
 	terra_remember_main_thread();
+	CPLErrorHandler h;
 	if (level==4) {
-		CPLSetErrorHandler((CPLErrorHandler)__err_none);
+		h = (CPLErrorHandler)__err_none;
 	} else if (level==1) {
-		CPLSetErrorHandler((CPLErrorHandler)__err_warning);
+		h = (CPLErrorHandler)__err_warning;
 	} else if (level==2) {
-		CPLSetErrorHandler((CPLErrorHandler)__err_error);
+		h = (CPLErrorHandler)__err_error;
 	} else {
-		CPLSetErrorHandler((CPLErrorHandler)__err_fatal);
+		h = (CPLErrorHandler)__err_fatal;
 	}
+	gdal_set_terra_error_handler(h);
+	CPLSetErrorHandler(h);
 }
 
 #include "common.h"
@@ -547,6 +575,10 @@ void gdal_init(std::string projpath, std::string datapath) {
 	CPLSetConfigOption("OGR_CT_FORCE_TRADITIONAL_GIS_ORDER", "YES");
 	CPLSetConfigOption("GDAL_DATA", datapath.c_str());
 	CPLSetConfigOption("CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE", "YES");
+	// Cap the block cache at 64 MB unless the user already set GDAL_CACHEMAX.
+	if (CPLGetConfigOption("GDAL_CACHEMAX", nullptr) == nullptr) {
+		GDALSetCacheMax64(static_cast<GIntBig>(64e6));
+	}
 	//GDAL_NETCDF_IGNORE_XY_AXIS_NAME_CHECKS
 
 	//GDALregistred = true;
@@ -688,12 +720,17 @@ bool set_proj_search_paths(std::vector<std::string> paths, bool with_proj = fals
 		return false;
 	}
 	if (with_proj) {
-		// Set for PROJ library
+		// Set for PROJ library (proj.h / PROJ >= 6; only available with GDAL >= 3 here)
+#ifdef projh
 		if (paths.size() == 1) {
 			const char *cp = paths[0].c_str();
 			proj_context_set_search_paths(PJ_DEFAULT_CTX, 1, &cp);
 		}
 		return true;
+#else
+		(void)paths;
+		return false;
+#endif
 	} else {
 		// Set for GDAL
 #if GDAL_VERSION_NUM >= 3000000
@@ -785,6 +822,15 @@ void removeDriver(std::vector<std::string> d) {
 			}
 		}
 	}
+}
+
+
+// [[Rcpp::export(name = ".modal_value")]]
+double modal_value_r(std::vector<double> values, unsigned ties, bool narm) {
+	uint32_t seed = static_cast<uint32_t>(R::unif_rand() * 4294967295.0);
+	std::default_random_engine rgen(seed);
+	std::uniform_real_distribution<double> dist(0.0, 1.0);
+	return modal_value(values, ties, narm, rgen, dist);
 }
 
 

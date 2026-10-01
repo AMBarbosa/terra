@@ -91,6 +91,12 @@ std::vector<std::string> SpatVector::wkb() {
 	std::vector<std::string> out;
 	out.reserve(g.size());
 	GEOSWKBWriter* writer = GEOSWKBWriter_create_r(hGEOSCtxt);
+#ifdef GEOS3100
+	GEOSWKBWriter_setFlavor_r(hGEOSCtxt, writer, GEOS_WKB_ISO);
+#endif
+	if (has_z()) {
+		GEOSWKBWriter_setOutputDimension_r(hGEOSCtxt, writer, 3);
+	}
 	size_t len=0;
 	for (size_t i=0; i<g.size(); i++) {
 		unsigned char *wkb = GEOSWKBWriter_write_r(hGEOSCtxt, writer, g[i].get(), &len);
@@ -105,15 +111,22 @@ std::vector<std::string> SpatVector::wkb() {
 std::vector<std::vector<unsigned char>> SpatVector::wkb_raw() {
 	GEOSContextScope hGEOSCtxt;
 	std::vector<GeomPtr> g = geos_geoms(this, hGEOSCtxt);
-	std::vector<std::vector<unsigned char>> out; 
+	std::vector<std::vector<unsigned char>> out;
+	out.reserve(g.size());
+	GEOSWKBWriter* writer = GEOSWKBWriter_create_r(hGEOSCtxt);
+#ifdef GEOS3100
+	GEOSWKBWriter_setFlavor_r(hGEOSCtxt, writer, GEOS_WKB_ISO);
+#endif
+	if (has_z()) {
+		GEOSWKBWriter_setOutputDimension_r(hGEOSCtxt, writer, 3);
+	}
 	size_t len = 0;
 	for (size_t i = 0; i < g.size(); i++) {
-		unsigned char *hex = GEOSGeomToWKB_buf_r(hGEOSCtxt, g[i].get(), &len);
-		std::vector<unsigned char> raw; 
-		raw = std::vector<unsigned char>(hex, hex+len);
-		out.push_back(raw);
-		free(hex);
+		unsigned char *rawbuf = GEOSWKBWriter_write_r(hGEOSCtxt, writer, g[i].get(), &len);
+		out.push_back(std::vector<unsigned char>(rawbuf, rawbuf+len));
+		GEOSFree_r(hGEOSCtxt, rawbuf);
 	}
+	GEOSWKBWriter_destroy_r(hGEOSCtxt, writer);
 	return out;
 }	
 
@@ -122,13 +135,21 @@ std::vector<std::string> SpatVector::hex() {
 	std::vector<GeomPtr> g = geos_geoms(this, hGEOSCtxt);
 	std::vector<std::string> out;
 	out.reserve(g.size());
+	GEOSWKBWriter* writer = GEOSWKBWriter_create_r(hGEOSCtxt);
+#ifdef GEOS3100
+	GEOSWKBWriter_setFlavor_r(hGEOSCtxt, writer, GEOS_WKB_ISO);
+#endif
+	if (has_z()) {
+		GEOSWKBWriter_setOutputDimension_r(hGEOSCtxt, writer, 3);
+	}
 	size_t len = 0;
 	for (size_t i = 0; i < g.size(); i++) {
-		unsigned char *hex = GEOSGeomToHEX_buf_r(hGEOSCtxt, g[i].get(), &len);
+		unsigned char *hex = GEOSWKBWriter_writeHEX_r(hGEOSCtxt, writer, g[i].get(), &len);
 		std::string s( reinterpret_cast<char const*>(hex), len) ;
 		out.push_back(s);
-		free(hex);
+		GEOSFree_r(hGEOSCtxt, hex);
 	}
+	GEOSWKBWriter_destroy_r(hGEOSCtxt, writer);
 	return out;
 }
 
@@ -2617,11 +2638,12 @@ SpatVector SpatVector::symdif(SpatVector v) {
 		out.setError("expected two polygon geometries");
 		return out;
 	}
-	SpatVector out = erase(v);
+	// Use erase_agg, not pairwise erase (#2175).
+	SpatVector out = erase_agg(v);
 	if (out.hasError()) {
 		return out;
 	}
-	SpatVector ve = v.erase(*this);
+	SpatVector ve = v.erase_agg(*this);
 	if (ve.hasError()) {
 		return ve;
 	}
@@ -2691,12 +2713,12 @@ SpatVector SpatVector::cover(SpatVector v, bool identity, bool expand) {
 	if (v.srs.is_empty()) {
 		v.srs = srs;
 	}
-	SpatVector out = erase(v);
+	SpatVector out = erase_agg(v);
 	if (identity) {
 		SpatVector insect = intersect(v, true);
 		out = out.append(insect, true);
 		if (expand) {
-			v = v.erase(insect);
+			v = v.erase_agg(insect);
 			out = out.append(v, true);
 		}
 	} else {
@@ -2756,11 +2778,12 @@ SpatVector SpatVector::erase_agg(SpatVector v) {
 		}
 	}
 	if (!result.empty()) {
-		std::vector<long> ids;
+		// Pass source-row ids (#2179).
+		std::vector<long> ids(rids.begin(), rids.end());
 		SpatVectorCollection coll = coll_from_geos(result, hGEOSCtxt, ids, true, false);
 		out = coll.get(0);
 		out.srs = srs;
-		out.df = df.subset_rows(rids);
+		out.df = df.subset_rows(out.df.iv[0]);
 	} else {
 		std::vector<long> none(1, -1);
 		out = subset_rows(none);
@@ -2821,13 +2844,15 @@ SpatVector SpatVector::erase(SpatVector v) {
 		std::vector<long> none(1, -1);
 		out = subset_rows(none);
 	} else {
-		SpatVectorCollection coll = coll_from_geos(x, hGEOSCtxt);
+		std::vector<GeomPtr> kept;
+		kept.reserve(rids.size());
+		for (size_t k = 0; k < rids.size(); k++) {
+			kept.push_back(std::move(x[rids[k]]));
+		}
+		SpatVectorCollection coll = coll_from_geos(kept, hGEOSCtxt, rids, true, false);
 		out = coll.get(0);
 		out.srs = srs;
-		out.df = df;
-		if (rids.size() != out.nrow()) {
-			out = out.subset_rows(rids);
-		}
+		out.df = df.subset_rows(out.df.iv[0]);
 	}
 	if (!srs.is_same(v.srs, true)) {
 		out.addWarning("different crs");

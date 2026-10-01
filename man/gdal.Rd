@@ -6,6 +6,7 @@
 \alias{clearVSIcache}
 \alias{getGDALconfig}
 \alias{setGDALconfig}
+\alias{gdal_has_pam}
 \alias{unloadGDALdrivers}
 \alias{proj_ok}
 \alias{projNetwork}
@@ -21,6 +22,8 @@ Set the \code{GDAL} warning level or get a \code{data.frame} with the available 
 
 The current \code{GDAL} configuration options are obtained with \code{getGDALconfig} and changed with \code{setGDALconfig}. 
 
+\code{gdal_has_pam} reports whether the linked GDAL was built with PAM support.
+
 \code{proj_ok} checks if the PROJ database with CRS definitions can be found.
 
 \code{projNetwork} controls whether PROJ can access network resources for coordinate transformations. By default, network access is enabled to provide high-accuracy grid-based datum transformations where available. When disabled, PROJ falls back to \href{https://proj.org/en/stable/glossary.html#term-Ballpark-transformation}{"ballpark transformations"} (of unknown accuracy) which could lead to errors of hundreds of meters in some cases. When enabled, PROJ downloads transformation grids from \code{https://cdn.proj.org}, requiring network connectivity and valid SSL certificates. After a successful run, the files are cached locally.
@@ -33,6 +36,7 @@ gdal(warn=NA, drivers=FALSE, ...)
 gdalCache(size=NA)
 setGDALconfig(option, value="")
 getGDALconfig(option)
+gdal_has_pam()
 clearVSIcache()
 libVersion(lib="all", parse=FALSE)
 unloadGDALdrivers(x)
@@ -45,7 +49,7 @@ projPaths(paths, with_proj = TRUE)
   \item{warn}{If \code{NA} and \code{drivers=FALSE}, the version of the library specified by \code{lib} is returned. Otherwise, the value should be an integer between 1 and 4 representing the level of GDAL warnings and errors that are passed to R. 1 = warnings and errors; 2 = errors only (recoverable errors as a warning); 3 = irrecoverable errors only; 4 = ignore all errors and warnings. The default setting is 2}
   \item{drivers}{logical. If \code{TRUE} a data.frame with the raster and vector data formats that are available.} 
   \item{...}{additional arguments (for backwards compatibility only)}  
-  \item{size}{numeric. The new cache size in MB}  
+  \item{size}{numeric. The new cache size in MB. terra sets the GDAL block cache to 64 MB when the package is loaded, unless environment variable \code{GDAL_CACHEMAX} was already set. Use \code{gdalCache} to change it afterwards}  
   \item{option}{character. GDAL configuration option name, or a "name=value" string (in which case the value argument is ignored}
   \item{value}{character. value for GDAL configuration option. Use "" to reset it to its default value}
   \item{lib}{character. "gdal", "proj", "geos", "TBB", or any other value to get the versions numbers of the first three and a logical value indicating whether TBB paralellization is available}

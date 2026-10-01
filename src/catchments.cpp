@@ -1,4 +1,6 @@
 #include "spatRaster.h"
+#include <algorithm>
+#include <limits>
 
 // C/C++ code
 // Author: Ezio Crestaz,Emanuele Cordano
@@ -1056,6 +1058,21 @@ void slope_direction(double* e, int nx, int ny, double *sr,double *sm,int *sface
 }
 
 
+// Cap path weight at ncell: flowaccm is only an internal update priority
+// (true catchment size cannot exceed the grid). Avoids UBSAN overflow when
+// drainage paths re-add / amplify counts.
+static void flowaccm_add_cap(int *flowaccm, int dst, int src, int ncell) {
+	const int a = *(flowaccm + dst);
+	const int b = *(flowaccm + src);
+	if (a >= ncell) {
+		*(flowaccm + dst) = ncell;
+	} else if (b > ncell - a) {
+		*(flowaccm + dst) = ncell;
+	} else {
+		*(flowaccm + dst) = a + b;
+	}
+}
+
 // returns false if the maximum number of iterations was exceeded
 bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double *sm, int *sfacet,int nx, int ny, double L,
 		double *atdc, double *atdd, double *atdplus,double *atdplus0, double *pflow,int *has_upstream,int *kupdate,int *flowaccm,
@@ -1074,20 +1091,21 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
   double atdplus_temp=0;
   double e0,e1,e2;
   double pflow_estimate=ddp1[0];
+  const int ncell = nx * ny;
+  // stamp cells already visited on the current drainage path (detects cycles)
+  std::vector<int> path_stamp(ncell, 0);
+  int path_gen = 0;
   
   /// ORDER E ; 
-  ///
-  ///
-  ///
-  ///
-  ///
-  std::vector<int> ide(nx*ny,0);
+  std::vector<int> ide(ncell,0);
   std::iota(ide.begin(), ide.end(), 0); 
-  std::sort(ide.begin(), ide.end(),[&](int a, int b){ return e[a] > e[b]; });
-  
+  std::sort(ide.begin(), ide.end(), [&](int a, int b) {
+	if (std::isnan(e[a])) return false;
+	if (std::isnan(e[b])) return true;
+	return e[a] > e[b];
+  });
 
-  
-  for (int i = 0; i < nx*ny; i++) {
+  for (int i = 0; i < ncell; i++) {
     
     *(has_upstream+i)=0;
     *(flowaccm+i)=1;
@@ -1095,7 +1113,7 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
     //Rprintf("i=%d, ,, e=%f  \n",i,*(e+i)); 
   } 
 
-  for (int i = 0; i < nx*ny; i++) { 
+  for (int i = 0; i < ncell; i++) { 
    x = getCol(nx, ny, i);   // ATTENTION: base 0 or 1?
    y = getRow(nx, ny, i); 
    facet=*(sfacet+i);
@@ -1105,10 +1123,6 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
    int nextd=nextcell_point_conv1(nx,ny,x,y,ddp2[facet],conv_type);
    e1=*(e+nextc);
    e2=*(e+nextd); 
-
-   ////
-
-
 
    *(atdc+i)=*(tdc+i)*sigma[facet];
    *(atdplus+i)=0;
@@ -1136,7 +1150,6 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
    pflow_estimate=*(pflow+i);
    nextp=nextcell_point_conv1(nx,ny,x,y,pflow_estimate,conv_type);
    if (nextp!=i) {
-
      *(has_upstream+nextp)=1+*(has_upstream+nextp);
    ////  *(flowaccm+nextp)=*(flowaccm+nextp)+*(flowaccm+i)
    }
@@ -1146,11 +1159,11 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
   int cnt=0;
   int cnt1=0;
  if (lambda>0) do { 
-  for (int i = 0; i < nx*ny; i++) {
+  for (int i = 0; i < ncell; i++) {
      *(has_upstream+i)=0;
      *(flowaccm+i)=1;
   }
-  for (int i = 0; i < nx*ny; i++) {
+  for (int i = 0; i < ncell; i++) {
      x = getCol(nx, ny, i);   // ATTENTION: base 0 or 1?
      y = getRow(nx, ny, i); 
      pflow_estimate=*(pflow+i);
@@ -1160,16 +1173,24 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
      }
   }
 
-  for (int jjk = 0; jjk < nx*ny; jjk++) {
-  int j=ide[jjk];  
-  int i=j; 
-  int flowacci=*(flowaccm+i);
-  if ((*(kupdate+j)==0) & ((*(has_upstream+j)==0) & (cnt1>=0))) cnt++; // ???
-  if ((*(kupdate+j)==0) & ((*(has_upstream+j)==0) & (cnt1>=0))) do {
+  for (int jjk = 0; jjk < ncell; jjk++) {
+    int j=ide[jjk];  
+    int i=j; 
+  //int flowacci=*(flowaccm+i);
+    if ((*(kupdate+j)==0) & ((*(has_upstream+j)==0) & (cnt1>=0))) cnt++; // ???
+    if ((*(kupdate+j)==0) & ((*(has_upstream+j)==0) & (cnt1>=0))) {
+    // new drainage path: bump generation so prior path visits are ignored
+    if (++path_gen == std::numeric_limits<int>::max()) {
+      std::fill(path_stamp.begin(), path_stamp.end(), 0);
+      path_gen = 1;
+    }
+    int path_steps = 0;
+    do {
    
     *(atdplus+j)=*(atdplus0+j); // ?????
    /// *(has_upstream+j)=-2;
     exit_cond=0;
+    path_stamp[i] = path_gen;
     *(kupdate+i)=cnt;
     x = getCol(nx, ny, i);   // ATTENTION: base 0 or 1
     y = getRow(nx, ny, i);
@@ -1177,11 +1198,7 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
   //  pflow_estimate=*(pflow+j);
    // pflow_estimate0=*(pflow+i);
    // e0=*(e+i); // not j ec 20260430
-
-    nextp=nextcell_point_conv1(nx,ny,x,y,*(pflow+i),conv_type);
-   
-    
-    
+    nextp=nextcell_point_conv1(nx,ny,x,y,*(pflow+i),conv_type);    
     // analyse nextp cell 
     int xp = getCol(nx, ny, nextp);   // ATTENTION: base 0 or 1
     int yp = getRow(nx, ny, nextp);
@@ -1239,23 +1256,25 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
         atdplus_temp=atdplus_nextpc;
       }
     }
-    // work here 20260122
-    
-    
-    if ((*(flowaccm+i)+1)>*(flowaccm+nextp)) { // 20260119    if (abs(atdplus_temp)>=abs(*(atdplus+i))){ // 20260119
+    // Stop before re-entering a cell already on this path.
+    // nextp == i is also a fixed point (self-flow); treat as end of path before
+    // adding (otherwise flowaccm[i] += flowaccm[i] doubles once per sink).
+    if ((nextp == i) || (path_stamp[nextp] == path_gen)) {
+      exit_cond = 2;
+    } else if (*(flowaccm+i) >= *(flowaccm+nextp)) { // same as (flowaccm[i]+1 > flowaccm[nextp])
   ////  if ((abs(atdplus_temp)>=abs(*(atdplus+nextp)))) { // 20260119    if (abs(atdplus_temp)>=abs(*(atdplus+i))){ // 20260119
    ///// if ((abs(atdplus_temp)>=abs(*(atdplus+nextp)))) { // 20260119    if (abs(atdplus_temp)>=abs(*(atdplus+i))){ // 20260119  
         // ADD A CONTROL (kupdate+nextp )
       *(atdplus+nextp)=atdplus_temp; // corrected on 20260429
       *(pflow+nextp)=pflow_estimate;
       *(kupdate+nextp)=cnt;
-      *(flowaccm+nextp)=*(flowaccm+nextp)+*(flowaccm+i);
+      flowaccm_add_cap(flowaccm, nextp, i, ncell);
       
     } else if (*(kupdate+nextp)==0) {
       *(atdplus+nextp)=atdplus_temp; // corrected on 20260429
       *(pflow+nextp)=pflow_estimate;
       *(kupdate+nextp)=cnt;
-      *(flowaccm+nextp)=*(flowaccm+nextp)+*(flowaccm+i);
+      flowaccm_add_cap(flowaccm, nextp, i, ncell);
       
     } else {
   //    *(pflow+nextp)=pflow_estimate;
@@ -1263,26 +1282,28 @@ bool transverse_deviation(double *e, double *tdc, double *tdd,double *sr,double 
   //    *(flowaccm+nextp)=*(flowaccm+nextp)+*(flowaccm+i);
       
     }
-    if (nextp!=i) { // 20260429      
+    if (exit_cond == 2) {
+      // cycle detected above; leave the path
+    } else if (nextp!=i) { // 20260429      
       i=nextp;
       nextp=nextq;
-      exit_cond=0;
+      exit_cond = (++path_steps > ncell) ? 2 : 0;
     } else {
       exit_cond=2;
     }
   } while (exit_cond==0);
+  }
   cnt1++;
   exit_cond1=2;
 
   // for statemant to verify kupdate!=0
   }
-  for (int j = 0; j < nx*ny; j++) {    
+  for (int j = 0; j < ncell; j++) {    
     if (*(kupdate+j)==0) exit_cond1=0;
   }
   if (cnt1>max_iters) {
     ok = false;
     exit_cond1=2;       
-
   }  
  } while  (exit_cond1==0);
   // NOVALUE

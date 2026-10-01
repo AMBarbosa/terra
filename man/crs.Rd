@@ -62,14 +62,18 @@ You can also set the crs to "local" to get an informal coordinate system on an a
 character or modified SpatRaster/Vector
 }
 
+\seealso{
+\code{\link{same.crs}}, {\code{\link{is.lonlat}}}
+}
 
 \examples{ 
 r <- rast()
 crs(r)
+cat( crs(r) )
 crs(r, describe=TRUE, proj=TRUE)
 
 crs(r) <- "+proj=lcc +lat_1=48 +lat_2=33 +lon_0=-100 +ellps=WGS84"
-crs(r)
+cat(crs(r))
 
 # You can use epsg codes
 crs(r)  <- "epsg:25831"

@@ -31,6 +31,58 @@
 #include "gdalio.h"
 #include "recycle.h"
 #include <sstream>
+#include <cctype>
+#include <cstdlib>
+#include <cstdio>
+
+
+namespace {
+// Prefer dataset CRS; if unset, fall back to GEOLOCATION / GCP SRS from open (#1175)
+std::string warp_source_crs(SpatRaster &r) {
+	std::string srccrs = r.getSRS("wkt");
+	if (!srccrs.empty()) return srccrs;
+	std::vector<std::string> gs = r.geoloc_srs();
+	for (size_t i=0; i<gs.size(); i++) {
+		if (!gs[i].empty()) return gs[i];
+	}
+	return srccrs;
+}
+
+bool dataset_has_geolocation(GDALDatasetH hDS) {
+	if (hDS == NULL) return false;
+	CSLConstList md = GDALGetMetadata(hDS, "GEOLOCATION");
+	if (md != NULL && CSLCount(md) > 0) return true;
+	GDALRasterBandH b = GDALGetRasterBand(hDS, 1);
+	if (b != NULL) {
+		md = GDALGetMetadata(b, "GEOLOCATION");
+		if (md != NULL && CSLCount(md) > 0) return true;
+	}
+	return false;
+}
+
+// netCDF GEOLOCATION lon/lat over /vsicurl/ often opens for metadata but warp
+// fills the destination with NA (esp. Windows). /vsis3/ can work when the
+// bucket is reachable (see #1175 CDSE example); do not refuse it here.
+bool geoloc_uses_vsicurl(const SpatRasterSource &s) {
+	auto has_vsicurl = [](const std::string &p) {
+		return p.find("/vsicurl/") != std::string::npos;
+	};
+	return has_vsicurl(s.filename) || has_vsicurl(s.geoloc_x) || has_vsicurl(s.geoloc_y);
+}
+
+const char *geoloc_vsi_msg =
+	"project/warp with GEOLOCATION arrays via /vsicurl/ is not supported for netCDF; download the file, or for S3 data try /vsis3/ with appropriate credentials";
+
+bool refuse_geoloc_vsi(SpatRaster &out, const std::vector<SpatRasterSource> &sources) {
+	for (size_t j=0; j<sources.size(); j++) {
+		if (sources[j].has_geolocation && geoloc_uses_vsicurl(sources[j])) {
+			out.setError(geoloc_vsi_msg);
+			return true;
+		}
+	}
+	return false;
+}
+}
 
 
 /*
@@ -196,7 +248,9 @@ SpatVector SpatRaster::dense_extent(bool inside, bool geobounds) {
 
 #if GDAL_VERSION_MAJOR <= 2 && GDAL_VERSION_MINOR < 2
 
-SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, std::vector<double> AOI, double desired_accuracy, bool allow_ballpark, double xscale, double yscale, SpatOptions &opt) {
+SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, double xscale, double yscale, std::vector<std::string> warp_opts, std::vector<std::string> trans_opts, SpatOptions &opt) {
+	(void)warp_opts;
+	(void)trans_opts;
 	SpatRaster out;
 	out.setError("Not supported for this old version of GDAL");
 	return(out);
@@ -206,7 +260,8 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 #else
 
 
-bool get_output_bounds(const GDALDatasetH &hSrcDS, std::string srccrs, const std::string dstcrs, SpatRaster &r) {
+bool get_output_bounds(const GDALDatasetH &hSrcDS, std::string srccrs, const std::string dstcrs, SpatRaster &r,
+		bool force_geoloc=false, const std::string &geoloc_x="", const std::string &geoloc_y="") {
 
 	if ( hSrcDS == NULL ) {
 		r.setError("data source is NULL");
@@ -238,7 +293,51 @@ bool get_output_bounds(const GDALDatasetH &hSrcDS, std::string srccrs, const std
 #endif
  	delete oSRS;
 
-	void *hTransformArg = GDALCreateGenImgProjTransformer( hSrcDS, pszSrcWKT, NULL, pszDstWKT, FALSE, 0, 1 );
+	// Ensure GEOLOCATION is visible on the dataset used for SuggestedWarpOutput.
+	if (force_geoloc && !geoloc_x.empty() && !geoloc_y.empty() && !dataset_has_geolocation(hSrcDS)) {
+		GDALSetMetadataItem(hSrcDS, "SRS", pszSrcWKT, "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "X_DATASET", geoloc_x.c_str(), "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "Y_DATASET", geoloc_y.c_str(), "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "X_BAND", "1", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "Y_BAND", "1", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "PIXEL_OFFSET", "0", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "PIXEL_STEP", "1", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "LINE_OFFSET", "0", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "LINE_STEP", "1", "GEOLOCATION");
+		GDALSetMetadataItem(hSrcDS, "GEOREFERENCING_CONVENTION", "PIXEL_CENTER", "GEOLOCATION");
+	}
+
+	// Swath / geolocation arrays: force GEOLOC_ARRAY so GDAL does not treat
+	// pixel indices as map coordinates when suggesting the output grid (#1175).
+	char **papszTO = nullptr;
+	papszTO = CSLSetNameValue(papszTO, "SRC_SRS", pszSrcWKT);
+	papszTO = CSLSetNameValue(papszTO, "DST_SRS", pszDstWKT);
+	const bool use_geoloc = force_geoloc || dataset_has_geolocation(hSrcDS);
+	if (use_geoloc) {
+		const char *xd = GDALGetMetadataItem(hSrcDS, "X_DATASET", "GEOLOCATION");
+		const char *yd = GDALGetMetadataItem(hSrcDS, "Y_DATASET", "GEOLOCATION");
+		std::string xds = xd ? xd : geoloc_x;
+		std::string yds = yd ? yd : geoloc_y;
+		if (!xds.empty() && !yds.empty()) {
+			gdal_capture_messages_begin();
+			GDALDatasetH hx = GDALOpen(xds.c_str(), GA_ReadOnly);
+			GDALDatasetH hy = (hx != NULL) ? GDALOpen(yds.c_str(), GA_ReadOnly) : NULL;
+			gdal_capture_messages_end(false);
+			if (hx == NULL || hy == NULL) {
+				if (hx) GDALClose(hx);
+				if (hy) GDALClose(hy);
+				CSLDestroy(papszTO);
+				CPLFree(pszDstWKT);
+				r.setError(geoloc_vsi_msg);
+				return false;
+			}
+			GDALClose(hx);
+			GDALClose(hy);
+		}
+		papszTO = CSLSetNameValue(papszTO, "SRC_METHOD", "GEOLOC_ARRAY");
+	}
+	void *hTransformArg = GDALCreateGenImgProjTransformer2(hSrcDS, NULL, papszTO);
+	CSLDestroy(papszTO);
 	if (hTransformArg == NULL ) {
 		r.setError("cannot create TranformArg");
 		CPLFree(pszDstWKT);
@@ -372,7 +471,79 @@ bool is_valid_warp_method(const std::string &method) {
 }
 
 
-bool set_warp_options(GDALWarpOptions *psWarpOptions, GDALDatasetH &hSrcDS, GDALDatasetH &hDstDS, std::vector<size_t> srcbands, std::vector<size_t> dstbands, std::string method, std::string srccrs, std::string msg, bool verbose, unsigned threads, std::string pipeline="", std::vector<double> AOI=std::vector<double>(), double desired_accuracy=-1.0, bool allow_ballpark=true, double xscale=0, double yscale=0) {
+// Apply "KEY=VALUE" strings to a CSL list (GDAL -wo / -to).
+static void apply_user_keyval_opts(char **&papsz, const std::vector<std::string> &opts) {
+	for (size_t i = 0; i < opts.size(); i++) {
+		if (opts[i].empty()) continue;
+		size_t eq = opts[i].find('=');
+		if (eq == std::string::npos || eq == 0) continue;
+		std::string key = opts[i].substr(0, eq);
+		std::string val = opts[i].substr(eq + 1);
+		papsz = CSLSetNameValue(papsz, key.c_str(), val.c_str());
+	}
+}
+
+// Map selected -to KEY=VALUE options onto OGRCoordinateTransformationOptions
+// for the early CT validity check (pipeline / AOI / accuracy / ballpark).
+#if GDAL_VERSION_NUM >= 3000000
+static bool ct_opts_from_trans(OGRCoordinateTransformationOptions &ct_opts,
+		const std::string &pipeline, const std::vector<std::string> &trans_opts,
+		bool &use_ct_opts, std::string &errmsg) {
+	use_ct_opts = false;
+	if (!pipeline.empty()) {
+		if (!ct_opts.SetCoordinateOperation(pipeline.c_str(), false)) {
+			errmsg = "pipeline not accepted";
+			return false;
+		}
+		use_ct_opts = true;
+	}
+	for (size_t i = 0; i < trans_opts.size(); i++) {
+		if (trans_opts[i].empty()) continue;
+		size_t eq = trans_opts[i].find('=');
+		if (eq == std::string::npos || eq == 0) continue;
+		std::string key = trans_opts[i].substr(0, eq);
+		std::string val = trans_opts[i].substr(eq + 1);
+		std::string keyu = key;
+		for (size_t j = 0; j < keyu.size(); j++) {
+			keyu[j] = (char) toupper((unsigned char) keyu[j]);
+		}
+		if (keyu == "AREA_OF_INTEREST") {
+			double w=0, s=0, e=0, n=0;
+			if (sscanf(val.c_str(), "%lf,%lf,%lf,%lf", &w, &s, &e, &n) != 4) {
+				errmsg = "AREA_OF_INTEREST must be west,south,east,north";
+				return false;
+			}
+			if (!ct_opts.SetAreaOfInterest(w, s, e, n)) {
+				errmsg = "area of interest not accepted";
+				return false;
+			}
+			use_ct_opts = true;
+		} else if (keyu == "COORDINATE_OPERATION" && pipeline.empty()) {
+			if (!ct_opts.SetCoordinateOperation(val.c_str(), false)) {
+				errmsg = "COORDINATE_OPERATION not accepted";
+				return false;
+			}
+			use_ct_opts = true;
+#if GDAL_VERSION_NUM >= 3030000
+		} else if (keyu == "DESIRED_ACCURACY") {
+			ct_opts.SetDesiredAccuracy(std::strtod(val.c_str(), nullptr));
+			use_ct_opts = true;
+		} else if (keyu == "ALLOW_BALLPARK") {
+			std::string valu = val;
+			for (size_t j = 0; j < valu.size(); j++) {
+				valu[j] = (char) toupper((unsigned char) valu[j]);
+			}
+			bool allow = !(valu == "NO" || valu == "FALSE" || valu == "0");
+			ct_opts.SetBallparkAllowed(allow);
+			use_ct_opts = true;
+#endif
+		}
+	}
+	return true;
+}
+#endif
+
+bool set_warp_options(GDALWarpOptions *psWarpOptions, GDALDatasetH &hSrcDS, GDALDatasetH &hDstDS, std::vector<size_t> srcbands, std::vector<size_t> dstbands, std::string method, std::string srccrs, std::string msg, bool verbose, unsigned threads, std::string pipeline="", double xscale=0, double yscale=0, const std::vector<std::string> &warp_opts=std::vector<std::string>(), const std::vector<std::string> &trans_opts=std::vector<std::string>()) {
 
 	if (srcbands.size() != dstbands.size()) {
 		msg = "number of source bands must match number of dest bands";
@@ -453,26 +624,21 @@ bool set_warp_options(GDALWarpOptions *psWarpOptions, GDALDatasetH &hSrcDS, GDAL
 				std::to_string(yscale).c_str());
 	}
 
+	// User -wo options (KEY=VALUE), applied after terra defaults so they can override (#2182)
+	apply_user_keyval_opts(psWarpOptions->papszWarpOptions, warp_opts);
+
 	char **papszTO = nullptr;
 #if GDAL_VERSION_NUM >= 3000000
 	if (!pipeline.empty()) {
 		papszTO = CSLSetNameValue(papszTO, "COORDINATE_OPERATION", pipeline.c_str());
 	}
-	if (AOI.size() == 4) {
-		std::string aoi_str = std::to_string(AOI[0]) + "," +
-			std::to_string(AOI[1]) + "," +	std::to_string(AOI[2]) + "," + std::to_string(AOI[3]);
-		papszTO = CSLSetNameValue(papszTO, "AREA_OF_INTEREST", aoi_str.c_str());
-	}
-#if GDAL_VERSION_NUM >= 3030000
-	if (desired_accuracy >= 0) {
-		papszTO = CSLSetNameValue(papszTO, "DESIRED_ACCURACY",
-			std::to_string(desired_accuracy).c_str());
-	}
-	if (!allow_ballpark) {
-		papszTO = CSLSetNameValue(papszTO, "ALLOW_BALLPARK", "NO");
-	}
 #endif
-#endif
+	if (dataset_has_geolocation(hSrcDS)) {
+		papszTO = CSLSetNameValue(papszTO, "SRC_METHOD", "GEOLOC_ARRAY");
+	}
+	// User -to options (KEY=VALUE), including AREA_OF_INTEREST / DESIRED_ACCURACY / ALLOW_BALLPARK (#2182)
+	apply_user_keyval_opts(papszTO, trans_opts);
+
 	if (papszTO != nullptr) {
 		if (pipeline.empty()) {
 			papszTO = CSLSetNameValue(papszTO, "SRC_SRS", srccrs.c_str());
@@ -510,11 +676,14 @@ bool gdal_warper(GDALWarpOptions *psWarpOptions, GDALDatasetH &hSrcDS, GDALDatas
 
 
 
-SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, std::vector<double> AOI, double desired_accuracy, bool allow_ballpark, double xscale, double yscale, SpatOptions &opt) {
+SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, double xscale, double yscale, std::vector<std::string> warp_opts, std::vector<std::string> trans_opts, SpatOptions &opt) {
 
 	size_t ns = nsrc();
 	bool fixext = false;
 	for (size_t j=0; j<ns; j++) {
+		// GEOLOCATION swaths must keep their file handle: materializing to
+		// memory/temp drops the GEOLOCATION domain and breaks project().
+		if (source[j].has_geolocation) continue;
 		if ((source[j].extset || source[j].flipped) && (!source[j].memory) && (!source[j].rotated)) {
 			fixext = true;
 			break;
@@ -526,6 +695,7 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 		SpatOptions xopt(opt);
 		xopt.ncopies = std::max((size_t) 10, xopt.ncopies*2);
 		for (size_t j=0; j<ns; j++) {
+			if (source[j].has_geolocation) continue;
 			if ((source[j].extset || source[j].flipped) && (!r.source[j].memory) && (!source[j].rotated)) {
 				SpatRaster tmp(source[j]);	
 				if (tmp.canProcessInMemory(xopt)) {
@@ -536,7 +706,7 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 				r.source[j] = tmp.source[0]; 
 			}
 		}
-		return r.warper(x, crs, method, mask, align, resample, pipeline, AOI, desired_accuracy, allow_ballpark, xscale, yscale, opt);
+		return r.warper(x, crs, method, mask, align, resample, pipeline, xscale, yscale, warp_opts, trans_opts, opt);
 	}
 
 
@@ -552,7 +722,7 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 	if (hasScaleOffset() && !any_rotated) {
 		SpatOptions opt2(opt);
 		SpatRaster app = apply_so(opt2);	
-		return app.warper(x, crs, method, mask, align, resample, pipeline, AOI, desired_accuracy, allow_ballpark, xscale, yscale, opt);
+		return app.warper(x, crs, method, mask, align, resample, pipeline, xscale, yscale, warp_opts, trans_opts, opt);
 	}
 
 	SpatRaster out = x.geometry(nlyr(), false, false);
@@ -561,9 +731,12 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 		out.setError("not a valid warp method");
 		return out;
 	}
-	std::string srccrs = getSRS("wkt");
+	std::string srccrs = warp_source_crs(*this);
 	if (resample) {
 		out.setSRS(srccrs);
+	}
+	if (refuse_geoloc_vsi(out, source)) {
+		return out;
 	}
 
 	out.setNames(getNames());
@@ -604,7 +777,7 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 
 	if (!resample) {
 		if (srccrs.empty()) {
-			out.setError("input raster CRS not set");
+			out.setError("input raster CRS not set (and no GEOLOCATION/GCP SRS found)");
 			return out;
 		}
 	}
@@ -618,9 +791,14 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 			return out;
 		}
 		out.setSRS(crs);
-		if (!get_output_bounds(hSrcDS, srccrs, crs, out)) {
+		const bool force_geoloc = (!source.empty() && source[0].has_geolocation);
+		const std::string gx = force_geoloc ? source[0].geoloc_x : "";
+		const std::string gy = force_geoloc ? source[0].geoloc_y : "";
+		if (!get_output_bounds(hSrcDS, srccrs, crs, out, force_geoloc, gx, gy)) {
 			GDALClose( hSrcDS );
-			out.setError("cannot get output boundaries for the target crs");
+			if (!out.hasError()) {
+				out.setError("cannot get output boundaries for the target crs");
+			}
 			return out;
 		}
 		GDALClose( hSrcDS );
@@ -646,30 +824,11 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 #if GDAL_VERSION_NUM >= 3000000
 		OGRCoordinateTransformationOptions ct_opts;
 		bool use_ct_opts = false;
-		if (use_pipe) {
-			if (!ct_opts.SetCoordinateOperation(pipeline.c_str(), false)) {
-				out.setError("pipeline not accepted");
-				return out;
-			}
-			use_ct_opts = true;
+		std::string ct_errmsg;
+		if (!ct_opts_from_trans(ct_opts, pipeline, trans_opts, use_ct_opts, ct_errmsg)) {
+			out.setError(ct_errmsg);
+			return out;
 		}
-		if (AOI.size() == 4) {
-			if (!ct_opts.SetAreaOfInterest(AOI[0], AOI[1], AOI[2], AOI[3])) {
-				out.setError("area of interest not accepted");
-				return out;
-			}
-			use_ct_opts = true;
-		}
-#if GDAL_VERSION_NUM >= 3030000
-		if (desired_accuracy >= 0) {
-			ct_opts.SetDesiredAccuracy(desired_accuracy);
-			use_ct_opts = true;
-		}
-		if (!allow_ballpark) {
-			ct_opts.SetBallparkAllowed(false);
-			use_ct_opts = true;
-		}
-#endif
 		OGRSpatialReference *pTarget = use_pipe ? nullptr : &target_srs;
 		if (use_ct_opts) {
 			poCT = OGRCreateCoordinateTransformation(&source_srs, pTarget, ct_opts);
@@ -677,8 +836,8 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 			poCT = OGRCreateCoordinateTransformation(&source_srs, &target_srs);
 		}
 #else
-		if (use_pipe || AOI.size() == 4) {
-			out.setError("pipeline and AOI require GDAL >= 3");
+		if (use_pipe || !trans_opts.empty()) {
+			out.setError("pipeline and transformer options require GDAL >= 3");
 			return out;
 		}
 		poCT = OGRCreateCoordinateTransformation(&source_srs, &target_srs);
@@ -745,7 +904,7 @@ SpatRaster SpatRaster::warper(SpatRaster x, std::string crs, std::string method,
 			bandstart += dstbands.size();
 
 			GDALWarpOptions *psWarpOptions = GDALCreateWarpOptions();
-			if (!set_warp_options(psWarpOptions, hSrcDS, hDstDS, srcbands, dstbands, method, srccrs, errmsg, opt.get_verbose(), opt.threads, pipeline, AOI, desired_accuracy, allow_ballpark, xscale, yscale)) {
+			if (!set_warp_options(psWarpOptions, hSrcDS, hDstDS, srcbands, dstbands, method, srccrs, errmsg, opt.get_verbose(), opt.threads, pipeline, xscale, yscale, warp_opts, trans_opts)) {
 				if (hSrcDS != NULL) GDALClose((GDALDatasetH) hSrcDS);
 				if (hDstDS != NULL) GDALClose((GDALDatasetH) hDstDS);
 				GDALDestroyWarpOptions(psWarpOptions);
@@ -831,9 +990,12 @@ SpatRaster SpatRaster::oldwarper(SpatRaster x, std::string crs, std::string meth
 		out.setError("not a valid warp method");
 		return out;
 	}
-	std::string srccrs = getSRS("wkt");
+	std::string srccrs = warp_source_crs(*this);
 	if (resample) {
 		out.setSRS(srccrs);
+	}
+	if (refuse_geoloc_vsi(out, source)) {
+		return out;
 	}
 
 	out.setNames(getNames());
@@ -874,7 +1036,7 @@ SpatRaster SpatRaster::oldwarper(SpatRaster x, std::string crs, std::string meth
 
 	if (!resample) {
 		if (srccrs.empty()) {
-			out.setError("input raster CRS not set");
+			out.setError("input raster CRS not set (and no GEOLOCATION/GCP SRS found)");
 			return out;
 		}
 	}
@@ -889,9 +1051,14 @@ SpatRaster SpatRaster::oldwarper(SpatRaster x, std::string crs, std::string meth
 			return out;
 		}
 		out.setSRS(crs);
-		if (!get_output_bounds(hSrcDS, srccrs, crs, out)) {
+		const bool force_geoloc = (!source.empty() && source[0].has_geolocation);
+		const std::string gx = force_geoloc ? source[0].geoloc_x : "";
+		const std::string gy = force_geoloc ? source[0].geoloc_y : "";
+		if (!get_output_bounds(hSrcDS, srccrs, crs, out, force_geoloc, gx, gy)) {
 			GDALClose( hSrcDS );
-			out.setError("cannot get output boundaries");
+			if (!out.hasError()) {
+				out.setError("cannot get output boundaries");
+			}
 			return out;
 		}
 		GDALClose( hSrcDS );
@@ -1031,7 +1198,7 @@ SpatRaster SpatRaster::oldwarper(SpatRaster x, std::string crs, std::string meth
 */
 
 
-SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, std::vector<double> AOI, double desired_accuracy, bool allow_ballpark, double xscale, double yscale, SpatOptions &opt) {
+SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, double xscale, double yscale, std::vector<std::string> warp_opts, std::vector<std::string> trans_opts, SpatOptions &opt) {
 
 	size_t ns = nsrc();
 	bool fixext = false;
@@ -1053,7 +1220,7 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 				r.source[j] = tmp.source[0]; 
 			}
 		}
-		return r.warper_by_util(x, crs, method, mask, align, resample, pipeline, AOI, desired_accuracy, allow_ballpark, xscale, yscale, opt);
+		return r.warper_by_util(x, crs, method, mask, align, resample, pipeline, xscale, yscale, warp_opts, trans_opts, opt);
 	}
 
 	// GDAL warp reads raw values; apply scale/offset first (like warper()), else
@@ -1068,7 +1235,7 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 	if (hasScaleOffset() && !any_rotated) {
 		SpatOptions opt2(opt);
 		SpatRaster app = apply_so(opt2);
-		return app.warper_by_util(x, crs, method, mask, align, resample, pipeline, AOI, desired_accuracy, allow_ballpark, xscale, yscale, opt);
+		return app.warper_by_util(x, crs, method, mask, align, resample, pipeline, xscale, yscale, warp_opts, trans_opts, opt);
 	}
 
 	SpatRaster out = x.geometry(nlyr(), false, false);
@@ -1077,9 +1244,12 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 		out.setError("not a valid warp method");
 		return out;
 	}
-	std::string srccrs = getSRS("wkt");
+	std::string srccrs = warp_source_crs(*this);
 	if (resample) {
 		out.setSRS(srccrs);
+	}
+	if (refuse_geoloc_vsi(out, source)) {
+		return out;
 	}
 
 	out.setNames(getNames());
@@ -1116,7 +1286,7 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 
 	if (!resample) {
 		if (srccrs.empty()) {
-			out.setError("input raster CRS not set");
+			out.setError("input raster CRS not set (and no GEOLOCATION/GCP SRS found)");
 			return out;
 		}
 	}
@@ -1130,9 +1300,14 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 			return out;
 		}
 		out.setSRS(crs);
-		if (!get_output_bounds(hSrcDS, srccrs, crs, out)) {
+		const bool force_geoloc = (!source.empty() && source[0].has_geolocation);
+		const std::string gx = force_geoloc ? source[0].geoloc_x : "";
+		const std::string gy = force_geoloc ? source[0].geoloc_y : "";
+		if (!get_output_bounds(hSrcDS, srccrs, crs, out, force_geoloc, gx, gy)) {
 			GDALClose( hSrcDS );
-			out.setError("cannot get output boundaries for the target crs");
+			if (!out.hasError()) {
+				out.setError("cannot get output boundaries for the target crs");
+			}
 			return out;
 		}
 		GDALClose( hSrcDS );
@@ -1158,30 +1333,11 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 #if GDAL_VERSION_NUM >= 3000000
 		OGRCoordinateTransformationOptions ct_opts;
 		bool use_ct_opts = false;
-		if (use_pipe) {
-			if (!ct_opts.SetCoordinateOperation(pipeline.c_str(), false)) {
-				out.setError("pipeline not accepted");
-				return out;
-			}
-			use_ct_opts = true;
+		std::string ct_errmsg;
+		if (!ct_opts_from_trans(ct_opts, pipeline, trans_opts, use_ct_opts, ct_errmsg)) {
+			out.setError(ct_errmsg);
+			return out;
 		}
-		if (AOI.size() == 4) {
-			if (!ct_opts.SetAreaOfInterest(AOI[0], AOI[1], AOI[2], AOI[3])) {
-				out.setError("area of interest not accepted");
-				return out;
-			}
-			use_ct_opts = true;
-		}
-#if GDAL_VERSION_NUM >= 3030000
-		if (desired_accuracy >= 0) {
-			ct_opts.SetDesiredAccuracy(desired_accuracy);
-			use_ct_opts = true;
-		}
-		if (!allow_ballpark) {
-			ct_opts.SetBallparkAllowed(false);
-			use_ct_opts = true;
-		}
-#endif
 		OGRSpatialReference *pTarget = use_pipe ? nullptr : &target_srs;
 		if (use_ct_opts) {
 			poCT = OGRCreateCoordinateTransformation(&source_srs, pTarget, ct_opts);
@@ -1189,8 +1345,8 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 			poCT = OGRCreateCoordinateTransformation(&source_srs, &target_srs);
 		}
 #else
-		if (use_pipe || AOI.size() == 4) {
-			out.setError("pipeline and AOI require GDAL >= 3");
+		if (use_pipe || !trans_opts.empty()) {
+			out.setError("pipeline and transformer options require GDAL >= 3");
 			return out;
 		}
 		poCT = OGRCreateCoordinateTransformation(&source_srs, &target_srs);
@@ -1291,6 +1447,11 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 			std::string wm_str = std::to_string(wm_mb);
 
 			std::vector<std::string> warp_args = {"-r", method, "-wm", wm_str};
+			for (size_t ti = 0; ti < trans_opts.size(); ti++) {
+				if (trans_opts[ti].empty()) continue;
+				warp_args.push_back("-to");
+				warp_args.push_back(trans_opts[ti]);
+			}
 			std::vector<const char*> cargs;
 			for (auto &s : warp_args) cargs.push_back(s.c_str());
 			cargs.push_back(nullptr);
@@ -1309,6 +1470,14 @@ SpatRaster SpatRaster::warper_by_util(SpatRaster x, std::string crs, std::string
 			if (yscale > 0) {
 				GDALWarpAppOptionsSetWarpOption(psWarpAppOptions, "YSCALE",
 					std::to_string(yscale).c_str());
+			}
+			for (size_t wi = 0; wi < warp_opts.size(); wi++) {
+				if (warp_opts[wi].empty()) continue;
+				size_t eq = warp_opts[wi].find('=');
+				if (eq == std::string::npos || eq == 0) continue;
+				std::string key = warp_opts[wi].substr(0, eq);
+				std::string val = warp_opts[wi].substr(eq + 1);
+				GDALWarpAppOptionsSetWarpOption(psWarpAppOptions, key.c_str(), val.c_str());
 			}
 			//--------------------------------------------------------------------------
 
@@ -1354,7 +1523,7 @@ std::vector<double> SpatRaster::warp_scale(SpatRaster x, size_t n) {
 
 	std::vector<double> result(10, NAN);
 
-	std::string src_crs = getSRS("wkt");
+	std::string src_crs = warp_source_crs(*this);
 	std::string dst_crs = x.getSRS("wkt");
 	if (src_crs.empty()) {
 		setError("source raster CRS not set");
@@ -1549,15 +1718,7 @@ SpatRaster SpatRaster::resample(SpatRaster x, std::string method, bool mask, boo
 // Other rotated rasters (e.g. JPEG) usually have no GEOLOCATION — no pad or trim.
 
 static bool has_geolocation(GDALDatasetH hDS) {
-	if (hDS == NULL) return false;
-	CSLConstList md = GDALGetMetadata(hDS, "GEOLOCATION");
-	if (md != NULL && CSLCount(md) > 0) return true;
-	GDALRasterBandH b = GDALGetRasterBand(hDS, 1);
-	if (b != NULL) {
-		md = GDALGetMetadata(b, "GEOLOCATION");
-		if (md != NULL && CSLCount(md) > 0) return true;
-	}
-	return false;
+	return dataset_has_geolocation(hDS);
 }
 
 static SpatExtent expand_extent(SpatExtent e) {
@@ -1627,7 +1788,7 @@ SpatRaster SpatRaster::rectify(std::string method, SpatRaster aoi, unsigned usea
 
 	// use bounds suggested by GDALWarp.
 #if GDAL_VERSION_MAJOR > 2 || (GDAL_VERSION_MAJOR == 2 && GDAL_VERSION_MINOR >= 2)
-	std::string srccrs = getSRS("wkt");
+	std::string srccrs = warp_source_crs(*this);
 	if (!get_output_bounds((GDALDatasetH) poDataset, srccrs, srccrs, out)) {
 		GDALClose( (GDALDatasetH) poDataset );
 		if (!out.hasError()) {
@@ -1707,8 +1868,9 @@ SpatVector SpatRaster::polygonize(bool round, bool values, bool narm, bool aggre
 	SpatOptions topt(opt);
 
 	SpatRaster tmp;
+	std::string warn = "";
 	if (nlyr() > 1) {
-		out.addWarning("only the first layer is polygonized when 'dissolve=TRUE'");
+		warn = "only the first layer is polygonized when 'dissolve=TRUE'";
 		tmp = subset({0}, topt);
 	} else {
 		tmp = *this;
@@ -1806,7 +1968,7 @@ SpatVector SpatRaster::polygonize(bool round, bool values, bool narm, bool aggre
 	}
 
 	GDALRasterBand  *poBand;
-	poBand = srcDS->GetRasterBand(1);
+	poBand = srcDS->GetRasterBand(tmp.source[0].layers[0] + 1);
 
 	//int hasNA=1;
 	//double naflag = poBand->GetNoDataValue(&hasNA);
@@ -1845,6 +2007,9 @@ SpatVector SpatRaster::polygonize(bool round, bool values, bool narm, bool aggre
 
 	if (!values) {
 		out.df = SpatDataFrame();
+	}
+	if (warn != "") {
+		out.addWarning(warn);
 	}
 
 	return out;

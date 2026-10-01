@@ -61,7 +61,7 @@
 \title{Dimensions of a SpatRaster or SpatVector and related objects}
 
 \description{
-Get the number of rows (\code{nrow}), columns (\code{ncol}), cells (\code{ncell}), layers (\code{nlyr}), sources (\code{nsrc}), the size \code{size} (\code{nlyr(x)*ncell(x)}), or spatial resolution of a SpatRaster.
+Get the number of rows (\code{nrow}), columns (\code{ncol}), cells (\code{ncell}), layers (\code{nlyr}), sources (\code{nsrc}), the size (\code{size = nlyr(x) * ncell(x)}), or spatial resolution of a SpatRaster (\code{res}).
 
 \code{length} returns the number of sub-datasets in a SpatRasterDataset or SpatVectorCollection.
 
@@ -78,6 +78,8 @@ You can also set the number of rows or columns or layers. When setting dimension
 \S4method{nlyr}{SpatRaster}(x)
 
 \S4method{ncell}{SpatRaster}(x)
+
+\S4method{size}{SpatRaster}(x)
 
 \S4method{nsrc}{SpatRaster}(x)
 

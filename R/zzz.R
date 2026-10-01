@@ -22,6 +22,7 @@
 
 
 
+
 .gdinit <- function() {
 	path = ""
 	proj_path <- system.file("proj", package="terra")
@@ -53,7 +54,7 @@ loadModule("spat", TRUE)
 
 
 .onAttach <- function(libname, pkgname) {
-	packageStartupMessage("terra ", utils::packageVersion("terra"))
+	#packageStartupMessage("terra ", utils::packageVersion("terra"))
 	.create_options()
 
 	if (length(grep(.geos_version(FALSE, TRUE), .geos_version(TRUE))) != 1) {

@@ -22,6 +22,7 @@
 
 #ifdef useGDAL
 #include "gdal_priv.h"
+#include "gdal_compat.h"
 #endif
 
 #ifdef useRcpp
@@ -79,8 +80,17 @@ class SpatRasterSource {
 		bool extset=false;
 		bool rotated=false;
 		bool flipped=false;
+		// Circular column offset for MD reads (GRIB 0-360 data under a -180-180 extent).
+		size_t m_x_wrap = 0;
 		bool hasWindow=false;
 		SpatWindow window;
+
+		// GDAL GEOLOCATION domain (swath / curvilinear) and/or GCPs
+		bool has_geolocation=false;
+		bool has_gcps=false;
+		std::string geoloc_srs;   // SRS from GEOLOCATION or GCP projection
+		std::string geoloc_x;     // X_DATASET from GEOLOCATION
+		std::string geoloc_y;     // Y_DATASET from GEOLOCATION
 
 		bool is_multidim = false;
 		std::string m_arrayname;
@@ -295,6 +305,16 @@ class SpatRaster {
 		bool gdal_stats = false;
 		bool gdal_approx = true;
 		bool gdal_minmax = true;
+#ifdef useGDAL
+#if GDAL_VERSION_MAJOR >= 3 && GDAL_VERSION_MINOR >= 4
+		// Shared cache for the currently open multidim dataset. Reused across
+		// sources that share the same filename+drivers so that we do not have
+		// to re-open (and re-scan) the file for every source.
+		std::shared_ptr<GDALDataset> m_mdCacheDataset;
+		std::shared_ptr<GDALGroup> m_mdCacheRoot;
+		std::string m_mdCacheKey;
+#endif
+#endif
 	protected:
 		SpatExtent window;
 
@@ -326,6 +346,9 @@ class SpatRaster {
 		std::vector<std::string> getWarnings() { return msg.getWarnings();}
 		std::string getError() { return msg.getError();}
 		std::string getMessage() { return msg.getMessage();}
+
+		std::vector<double> misc;
+		std::vector<double> get_misc() { return misc; };
 
 		std::vector<std::vector<std::string>> user_tags;
 		bool addTag(std::string name, std::string value, std::string domain);
@@ -388,6 +411,11 @@ class SpatRaster {
 		double size() { return (double)ncol() * (double)nrow() * (double)nlyr() ; }
 
 		std::vector<bool> is_rotated();
+		std::vector<bool> has_geoloc();
+		std::vector<bool> has_gcps();
+		std::vector<std::string> geoloc_srs();
+		std::vector<std::string> geoloc_x();
+		std::vector<std::string> geoloc_y();
 
 		double xres();
 		double yres();
@@ -649,6 +677,7 @@ class SpatRaster {
 
 		bool readStartMulti(size_t src);
 		bool readStopMulti(size_t src);
+		void flushMultidimCache();
 		bool open_gdal_multidim(GDALDatasetH &hDS, size_t src);
 		bool readChunkMulti(std::vector<double> &data, size_t src, size_t row, size_t nrows, size_t col, size_t ncols);
 		std::vector<double> readValuesMulti(size_t src, size_t row, size_t nrows, size_t col, size_t ncols, int lyr);
@@ -854,7 +883,9 @@ class SpatRaster {
 		SpatRaster costDistanceDijkstra(double target, double m, bool grid, bool nearest, SpatOptions &opt);
 
 		SpatRaster init(std::string value, bool plusone, SpatOptions &opt);
+		SpatRaster init(std::string value, bool mask, bool plusone, SpatOptions &opt);
 		SpatRaster init(std::vector<double> values, SpatOptions &opt);
+		SpatRaster init(std::vector<double> values, bool mask, SpatOptions &opt);
 
 		SpatRaster is_in(std::vector<double> m, SpatOptions &opt);
 		std::vector<std::vector<double>> is_in_cells(std::vector<double> m, bool keepvalue, SpatOptions &opt);
@@ -1024,13 +1055,13 @@ class SpatRaster {
 		SpatRaster weighted_mean(SpatRaster w, bool narm, SpatOptions &opt);
 		SpatRaster weighted_mean(std::vector<double> w, bool narm, SpatOptions &opt);
 
-		SpatRaster warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, std::vector<double> AOI, double desired_accuracy, bool allow_ballpark, double xscale, double yscale, SpatOptions &opt);
+		SpatRaster warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, double xscale, double yscale, std::vector<std::string> warp_opts, std::vector<std::string> trans_opts, SpatOptions &opt);
 		SpatRaster warper(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, SpatOptions &opt) {
-			return warper(x, crs, method, mask, align, resample, "", std::vector<double>(), -1.0, true, 0, 0, opt);
+			return warper(x, crs, method, mask, align, resample, "", 0, 0, std::vector<std::string>(), std::vector<std::string>(), opt);
 		}
-		SpatRaster warper_by_util(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, std::vector<double> AOI, double desired_accuracy, bool allow_ballpark, double xscale, double yscale, SpatOptions &opt);
+		SpatRaster warper_by_util(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, std::string pipeline, double xscale, double yscale, std::vector<std::string> warp_opts, std::vector<std::string> trans_opts, SpatOptions &opt);
 		SpatRaster warper_by_util(SpatRaster x, std::string crs, std::string method, bool mask, bool align, bool resample, SpatOptions &opt) {
-			return warper_by_util(x, crs, method, mask, align, resample, "", std::vector<double>(), -1.0, true, 0, 0, opt);
+			return warper_by_util(x, crs, method, mask, align, resample, "", 0, 0, std::vector<std::string>(), std::vector<std::string>(), opt);
 		}
 
 		std::vector<double> warp_scale(SpatRaster x, size_t n);

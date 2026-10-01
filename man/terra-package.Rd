@@ -14,7 +14,7 @@
 
 The package implements two main classes (data types): \code{SpatRaster} and \code{SpatVector}. \code{SpatRaster} supports handling large raster files that cannot be loaded into memory; local, focal, zonal, and global raster operations; polygon, line and point to raster conversion; integration with modeling methods to make spatial predictions; and more. \code{SpatVector} supports all types of geometric operations such as intersections.
 
-Additional classes include \code{SpatExtent}, which is used to define a spatial extent (bounding box); \code{SpatRasterDataset}, which represents a collection of sub-datasets for the same area. Each sub-dataset is a SpatRaster with possibly many layers, and may, for example, represent different weather variables; and \code{SpatRasterCollection} and \code{SpatVectorCollection} that are equivalent to lists of \code{SpatRaster} or \code{SpatVector} objects. There is also a \code{SpatGraticule} class to assist in adding longitude/latitude lines and labels to a map with another coordinate reference system.
+Additional classes include \code{SpatExtent}, which is used to define a spatial extent (bounding box); \code{SpatRasterDataset}, which represents a collection of sub-datasets for the same area. Each sub-dataset is a SpatRaster with possibly many layers, and may, for example, represent different weather variables; and \code{SpatRasterCollection} and \code{SpatVectorCollection} that are equivalent to lists of \code{SpatRaster} or \code{SpatVector} objects. There is also a \code{SpatGraticule} class to assist in adding longitude/latitude lines and labels to a map with another coordinate reference system; and a \code{SpatNetwork} class for spatial graphs of nodes and edges (for example road or stream networks).
 
 These classes hold a C++ pointer to the data "reference class". You should not write scripts that directly access this pointer, as its user-interface is not stable. These pointers make the code run fast, but they cannot be "serialized". That is they cannot be recovered from a saved R session, or passed to nodes on a computer cluster. Generally, you should use \code{\link{writeRaster}} to save \code{SpatRaster} objects to disk (and pass a filename or cell values to cluster nodes). Also see \code{\link{wrap}} and \code{\link{saveRDS}}. See these \href{https://rspatial.org/pkg/10-parallel.html}{guidelines} for parallelization with terra objects.
 
@@ -253,6 +253,8 @@ Get or set basic parameters of SpatRasters. If there are values associated with 
     \code{\link{NAflag}} \tab Set the \code{NA} value (for reading from a file with insufficient metadata) \cr
     \code{\link{units}} / \code{\link{units<-}} \tab Layer measurement units \cr
     \code{\link{is.rotated}} \tab Whether a SpatRaster is rotated \cr
+    \code{\link{has.geoloc}} \tab Whether a SpatRaster has GDAL geolocation arrays / GCPs \cr
+    \code{\link{geoloc}} \tab Geolocation / GCP metadata for a SpatRaster \cr
     \code{\link{is.flipped}} \tab Whether a SpatRaster is flipped \cr
     \code{\link{datatype}} \tab Storage datatype of layers \cr
     \code{\link{scoff}} / \code{\link{scoff<-}} \tab Scale-offset values \cr	
@@ -456,6 +458,7 @@ A SpatRasterCollection is a vector of SpatRaster objects. Unlike for a SpatRaste
   \code{\link{is.lonlat}} \tab Test if an object has (or may have) a longitude/latitude coordinate reference system\cr
   \code{\link{geomtype}} \tab Geometry type string \cr
   \code{\link{is.lines}} / \code{\link{is.points}} \tab Geometry type tests \cr
+  \code{\link{has.z}} \tab Whether geometries store Z coordinates \cr
   \code{\link{is.polygons}} \tab  \cr
   --------------------------- \tab ------------------------------------------------------------------------------------------ \cr  
 }}
@@ -598,12 +601,30 @@ A SpatVectorCollection is a vector of SpatVector objects.
   }
 }
 
+\section{XXIX. SpatNetwork}{
+
+A SpatNetwork represents a spatial graph of nodes and edges (for example a road or stream network).
+
+\tabular{ll}{
+  \code{\link{netw}} \tab Create a SpatNetwork from lines, an igraph, a file, or from scratch\cr
+  \code{\link{net_nodes}} \tab Get the nodes as a SpatVector of points\cr
+  \code{\link{net_edges}} \tab Get the edges as a SpatVector of lines\cr
+  \code{\link{net_nnodes}} / \code{\link{net_nedges}} \tab Number of nodes or edges\cr
+  \code{\link{net_directed}} \tab Is the network directed?\cr
+  \code{\link{net_weights}} / \code{\link{net_weights<-}} \tab Get or set edge weights\cr
+  \code{\link{shortestPath}} \tab Shortest paths between nodes (Dijkstra)\cr
+  \code{\link{writeNetwork}} \tab Write a SpatNetwork to disk (GNM format)\cr
+  \code{\link{crs}} / \code{\link{ext}} \tab Coordinate reference system and extent\cr
+  --------------------------- \tab ------------------------------------------------------------------------------------------ \cr
+}
+}
+
 
 \section{\bold{General methods}}{
 
 ---------------------------------------------------------------------------------------------------------------------}
 
-\section{XXIX. Conversion between spatial data objects from different packages}{
+\section{XXX. Conversion between spatial data objects from different packages}{
 
 You can coerce SpatRasters to Raster* objects, after loading the \code{raster} package, with \code{as(object, "Raster")}, or \code{raster(object)} or \code{brick(object)} or \code{stack(object)}
  
@@ -622,7 +643,7 @@ You can coerce SpatRasters to Raster* objects, after loading the \code{raster} p
   }
 }
 
-\section{XXX. Plotting}{
+\section{XXXI. Plotting}{
 
 \subsection{Maps}{
   \tabular{ll}{
@@ -684,6 +705,32 @@ You can coerce SpatRasters to Raster* objects, after loading the \code{raster} p
 }
 }
 
+
+
+\section{XXXII. Longitude/latitude data}{
+
+Most methods that involve distance, area, direction, or sampling account for the Earth's shape when the coordinate reference system is longitude/latitude. Distances and lengths are then expressed in meters (unless noted otherwise), typically computed on the WGS84 ellipsoid with Karney's algorithm (GeographicLib). Areas are computed on the ellipsoid as well. For these quantities it is generally better to use lon/lat data than a planar (projected) CRS, because map projections distort distance, area and/or direction. These methods include \code{\link{distance}}, \code{\link{direction}}, \code{\link{gridDist}}, \code{\link{costDist}}, \code{\link{nearby}}, \code{\link{nearest}}, \code{\link{buffer}}, \code{\link{expanse}}, \code{\link{cellSize}}, \code{\link{perim}}, \code{\link{terrain}}, \code{\link{densify}}, \code{\link{elongate}}, \code{\link{agitate}}, \code{\link{spatSample}}, \code{\link{netw}}, \code{\link{shortestPath}}, and \code{\link{tessellate}}.
+
+Some methods do \bold{not} use geodesic algorithms, require a planar CRS, or interpret parameters in the units of the CRS (degrees for lon/lat). 
+
+Geometric "vector overlay" operations such as \code{\link{intersect}}, \code{\link{union}}, \code{\link{erase}}, \code{\link{symdif}}, \code{\link{crop}} do not adjust for lon/lat intersections (use \code{\link{densify}} to approximate it better if needed) 
+
+\code{\link{voronoi}}, \code{\link{hull}}) treat longitude/latitude coordinates as if they were planar.
+
+\tabular{ll}{
+\code{\link{viewshed}} \tab Requires a planar CRS (not lon/lat)\cr
+\code{\link{surfArea}} \tab Requires a planar CRS with elevation in the same units\cr
+\code{\link{simplifyGeom}}, \code{\link{snap}} \tab \code{tolerance} is in CRS units (degrees for lon/lat)\cr
+\code{\link{voronoi}} \tab Snapping \code{tolerance} is in CRS units; the diagram is planar\cr
+\code{\link{rasterizeWin}} \tab Window size is in CRS units (no degree-to-meter conversion)\cr
+\code{\link{focalMat}} \tab Filter size is in CRS units\cr
+\code{\link{extract}} \tab \code{search_radius} for lon/lat uses mean latitude (approximate)\cr
+  --------------------------- \tab ------------------------------------------------------------------------------------------ \cr
+}
+}
+
+
+
 \section{\bold{Comparison with the raster package}}{
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -692,9 +739,9 @@ You can coerce SpatRasters to Raster* objects, after loading the \code{raster} p
 }
 
 
-\section{XXXI. New method names}{
+\section{XXXIII. New method names}{
 
-\code{terra} has a single class \code{SpatRaster} for which \code{raster} has three (\code{RasterLayer, RasterStack, RasterBrick}). Likewise there is a single class for vector data \code{SpatVector} that replaces six \code{Spatial*} classes. Most method names are the same, but note the following important differences in methods names with the \code{raster} package
+\code{terra} has a single class \code{SpatRaster} for which \code{raster} has three (\code{RasterLayer, RasterStack, RasterBrick}). Likewise there is a single class for vector data \code{SpatVector} that replaces six \code{Spatial*} classes. Most method names are the same, but note the following important differences in method names with the \code{raster} package
 
 \tabular{ll}{
 \bold{raster package} \tab \bold{terra package}\cr
@@ -739,7 +786,7 @@ You can coerce SpatRasters to Raster* objects, after loading the \code{raster} p
 }
 }
 
-\section{XXXII. Changed behavior}{
+\section{XXXIV. Changed behavior}{
 
 Also note that even if function names are the same in \code{terra} and \code{raster}, their output can be different. In most cases this was done to get more consistency in the returned values (and thus fewer errors in the downstream code that uses them). In other cases it simply seemed better. Here are some examples:
 
@@ -751,7 +798,7 @@ Also note that even if function names are the same in \code{terra} and \code{ras
 \tab \code{raster} returns a list (for lines or polygons) or a matrix (for points, but without the ID\cr
 \tab column). You can use \code{list=TRUE} to get the results as a list\cr
 \code{\link{values}}\tab \code{terra} always returns a matrix. \code{raster} returns a vector for a \code{RasterLayer}\cr
-\code{\link{Summary-methods}}\tab With \code{raster}, \code{mean(x, y)} and \code{mean(stack(x, y)} return the same result, a single\cr
+\code{\link{Summary-methods}}\tab With \code{raster}, \code{mean(x, y)} and \code{mean(stack(x, y))} return the same result, a single\cr
 \tab layer with the mean of all cell values. This is also what \code{terra} returns with \cr
 \tab \code{mean(c(x, y))}, but with \code{mean(x, y)} the parallel mean is returned -- that is, the\cr
 \tab computation is done layer-wise, and the number of layers in the output is the same as\cr
@@ -764,10 +811,10 @@ Also note that even if function names are the same in \code{terra} and \code{ras
 }
 
 \section{Contributors}{
-Except where indicated otherwise, the methods and functions in this package were written by Robert Hijmans. Andrew Gene Brown and Márcia Barbosa contributed many improvements to the code and documentation. Krzysztof Dyba contributed to documentation and github management and issues. The configuration scripts were written by Roger Bivand. Some of code using the GEOS library was adapted from code by Edzer Pebesma for \code{sf}. Emanuele Cordano contributed functionality for catchment related computations. Michael Chirico, Barry Rowlingson, and Michael D. Sumner also made important contributions.
+Except where indicated otherwise, the methods and functions in this package were written by Robert Hijmans. Andrew Gene Brown and Márcia Barbosa contributed many improvements to the code and documentation. Krzysztof Dyba contributed to documentation and github management and issues. Emanuele Cordano contributed functions for catchment related computations. The configuration scripts were written by Roger Bivand. Some of the code for using the GEOS library was adapted from code by Edzer Pebesma for \code{sf}. Michael Chirico, Barry Rowlingson, and Michael D. Sumner also made important contributions.
 
 
-This package is an attempt to climb on the shoulders of giants (GDAL, PROJ, GEOS, NCDF, GeographicLib, Rcpp, R). Many people have contributed by asking questions or \href{https://github.com/rspatial/terra}{raising issues}. Feedback and suggestions by Kendon Bell, Jean-Luc Dupouey, Sarah Endicott, Derek Friend, Alex Ilich, Agustin Lobo, Gerald Nelson, Jakub Nowosad, and Monika Tomaszewska have been especially helpful.
+This package is an attempt to climb on the shoulders of giants (GDAL, PROJ, GEOS, NCDF, GeographicLib, Rcpp, R). Many people have contributed by asking questions or \href{https://github.com/rspatial/terra}{raising issues}. Feedback and suggestions by Kodi Arfer, Kendon Bell, Jean-Luc Dupouey, Sarah Endicott, Derek Friend, Alex Ilich, Agustin Lobo, Gerald Nelson, Jakub Nowosad, and Monika Tomaszewska have been especially helpful.
 }
 
 

@@ -22,6 +22,7 @@
 
 #ifdef useGDAL
 #include "gdal_priv.h"
+#include "gdal_compat.h"
 #endif
 
 enum SpatGeomType { points, lines, polygons, null};
@@ -31,33 +32,39 @@ class SpatHole {
 	public:
 		virtual ~SpatHole(){}
 
-		std::vector<double> x, y;
+		std::vector<double> x, y, z;
 		SpatExtent extent;
 		//constructors
 		SpatHole();
 		SpatHole(std::vector<double> X, std::vector<double> Y);
+		SpatHole(std::vector<double> X, std::vector<double> Y, std::vector<double> Z);
 		//methods
 		size_t size() { return x.size(); }
 		bool empty() { return x.empty(); }
+		bool hasZ() const { return !z.empty(); }
 };
 
 class SpatPart {
 	public:
 		virtual ~SpatPart(){}
-		std::vector<double> x, y; //, z;
+		std::vector<double> x, y, z;
 		std::vector< SpatHole > holes; // polygons only
 		SpatExtent extent;
 
 		//constructors
 		SpatPart();
 		SpatPart(std::vector<double> X, std::vector<double> Y);
+		SpatPart(std::vector<double> X, std::vector<double> Y, std::vector<double> Z);
 		SpatPart(double X, double Y);
+		SpatPart(double X, double Y, double Z);
 
 		//methods
 		size_t size() { return x.size(); }
 		bool empty() { return x.empty(); }
+		bool hasZ() const { return !z.empty(); }
 		//holes, polygons only
 		bool addHole(std::vector<double> X, std::vector<double> Y);
+		bool addHole(std::vector<double> X, std::vector<double> Y, std::vector<double> Z);
 		bool addHole(SpatHole h);
 		SpatHole getHole(size_t i) { return( holes[i] ) ; }
 		bool hasHoles() { return !holes.empty();}
@@ -184,8 +191,7 @@ class SpatVector {
 		std::vector<std::vector<double>> coordinates();
 
 		SpatVector project(std::string crs, bool partial, std::string pipeline="",
-			std::vector<double> AOI=std::vector<double>(), double desired_accuracy=-1.0,
-			bool allow_ballpark=true);
+			std::vector<std::string> trans_opts=std::vector<std::string>());
 		std::vector<double> project_xy(std::vector<double> x, std::vector<double> y, std::string fromCRS, std::string toCRS);
 
 		SpatVector subset_cols(long i);
@@ -195,10 +201,12 @@ class SpatVector {
 		SpatVector subset_rows(std::vector<size_t> range);
 		SpatVector remove_rows(std::vector<size_t> range);
 
-		void setGeometry(std::string type, std::vector<size_t> gid, std::vector<size_t> part, std::vector<double> x, std::vector<double> y, std::vector<size_t> hole);
+		void setGeometry(std::string type, std::vector<size_t> gid, std::vector<size_t> part, std::vector<double> x, std::vector<double> y, std::vector<size_t> hole, std::vector<double> z);
 		void setPointsGeometry(std::vector<double> &x, std::vector<double> &y);
+		void setPointsGeometry(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z);
 		void setPointsDF(SpatDataFrame &x, std::vector<size_t> geo, std::string crs, bool keepgeom);
 		void setLinesStartEnd(std::vector<double> &x, std::string crs);
+		bool has_z();
 
 		std::vector<double> area(std::string unit, bool transform, std::vector<double> mask);
 

@@ -18,6 +18,15 @@ expect_equal(as.vector(values(sb)), vv)
 ini <- init(r, fun = "cell")
 expect_equal(as.vector(values(ini)), as.numeric(1:ncell(r)))
 
+## init — mask=TRUE uses x
+e <- rast(system.file("ex/elev.tif", package="terra"))
+lat <- init(e, fun="y", mask=TRUE)
+expect_equal(as.vector(is.na(values(lat))), as.vector(is.na(values(e))))
+expect_false(all(is.na(values(lat))))
+z <- init(e, fun=8, mask=TRUE)
+expect_equal(as.vector(is.na(values(z))), as.vector(is.na(values(e))))
+expect_equal(unique(as.vector(values(z)[!is.na(values(z))])), 8)
+
 ## segregate — three binary layers for r < 20
 sg <- segregate(r < 20)
 expect_equal(nlyr(sg), 2L)
@@ -40,6 +49,18 @@ expect_equal(as.vector(values(diff(c(r, r * 2)))), v)
 ## modal — identical layers
 md <- modal(c(r, r, r))
 expect_equal(as.vector(values(md)), v)
+
+## modal — vectors
+expect_equal(modal(c(1, 2, 2, 3), ties="lowest"), 2)
+expect_equal(modal(c(1L, 1L, 2L, 2L), ties="lowest"), 1L)
+expect_equal(modal(c(1, 1, 2, 2), ties="highest"), 2)
+expect_equal(modal(c(2, 2, 1, 1), ties="first"), 2)
+expect_true(is.na(modal(c(1, NA, 1), na.rm=FALSE)))
+expect_equal(modal(c(1, NA, 1), na.rm=TRUE), 1)
+expect_equal(modal(c(1, 1, 2), freq=TRUE), 2L)
+expect_equal(modal(c("a", "b", "b")), "b")
+expect_equal(as.character(modal(factor(c("a", "b", "b"), levels=c("a","b","c")))), "b")
+expect_true(modal(c(TRUE, FALSE, TRUE)))
 
 ## thresh — mean split vs manual classify
 tr <- thresh(r, method = "mean", as.raster = TRUE)

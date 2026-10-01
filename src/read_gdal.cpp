@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <stdint.h>
 #include <cmath>
+#include <cstring>
 #include <vector>
 //#include <regex>
 
@@ -36,6 +37,7 @@
 //#include "NA.h"
 
 #include "gdal_priv.h"
+#include "gdal_compat.h"
 #include "cpl_conv.h" // for CPLMalloc()
 #include "cpl_string.h"
 #include "ogr_spatialref.h"
@@ -995,10 +997,169 @@ bool getGCPs(GDALDataset *poDataset, SpatRasterSource &s) {
 }
 
 
+// Read GEOLOCATION metadata and/or GCPs for swath / curvilinear files to have a CRS 
+// for project()/warp without requiring set.crs() (#1175).
+static void fill_geolocation(GDALDataset *poDataset, SpatRasterSource &s) {
+	s.has_geolocation = false;
+	s.has_gcps = false;
+	s.geoloc_srs.clear();
+	s.geoloc_x.clear();
+	s.geoloc_y.clear();
+
+	if (poDataset == NULL) return;
+
+	CSLConstList md = GDALGetMetadata((GDALDatasetH)poDataset, "GEOLOCATION");
+	if (md == NULL || CSLCount(md) == 0) {
+		GDALRasterBandH b = GDALGetRasterBand((GDALDatasetH)poDataset, 1);
+		if (b != NULL) {
+			md = GDALGetMetadata(b, "GEOLOCATION");
+		}
+	}
+	if (md != NULL && CSLCount(md) > 0) {
+		s.has_geolocation = true;
+		const char *srs = CSLFetchNameValue(md, "SRS");
+		if (srs != NULL && strlen(srs) > 0) {
+			s.geoloc_srs = srs;
+		}
+		const char *xd = CSLFetchNameValue(md, "X_DATASET");
+		if (xd != NULL) s.geoloc_x = xd;
+		const char *yd = CSLFetchNameValue(md, "Y_DATASET");
+		if (yd != NULL) s.geoloc_y = yd;
+	}
+
+	if (poDataset->GetGCPCount() > 0) {
+		s.has_gcps = true;
+		if (s.geoloc_srs.empty()) {
+			const char *gcp_wkt = poDataset->GetGCPProjection();
+			if (gcp_wkt != NULL && strlen(gcp_wkt) > 0) {
+				s.geoloc_srs = gcp_wkt;
+			}
+#if GDAL_VERSION_MAJOR >= 3
+			else {
+				const OGRSpatialReference *gcp_srs = poDataset->GetGCPSpatialRef();
+				if (gcp_srs != NULL) {
+					char *cp = NULL;
+					const char *options[3] = { "MULTILINE=YES", "FORMAT=WKT2", NULL };
+					if (gcp_srs->exportToWkt(&cp, options) == OGRERR_NONE && cp != NULL) {
+						s.geoloc_srs = cp;
+					}
+					CPLFree(cp);
+				}
+			}
+#endif
+		}
+	}
+}
+
+
+// Copy GEOLOCATION / GCP fields onto multidim sources and, if CRS is still
+// empty, apply geoloc_srs. The multidim API does not expose GDAL's classic
+// GEOLOCATION domain, so we read it from a classic 2D dataset handle (#1175).
+static void apply_geolocation_to_sources(SpatRaster &r, SpatRasterSource &geo, bool warn_no_gt) {
+	if (!geo.has_geolocation && !geo.has_gcps) return;
+	bool any_crs = false;
+	for (size_t i=0; i<r.source.size(); i++) {
+		r.source[i].has_geolocation = geo.has_geolocation;
+		r.source[i].has_gcps = geo.has_gcps;
+		r.source[i].geoloc_srs = geo.geoloc_srs;
+		r.source[i].geoloc_x = geo.geoloc_x;
+		r.source[i].geoloc_y = geo.geoloc_y;
+		if (r.source[i].srs.is_empty() && !geo.geoloc_srs.empty()) {
+			std::string msg;
+			if (r.source[i].srs.set(geo.geoloc_srs, msg)) {
+				r.source[i].parameters_changed = true;
+				any_crs = true;
+			} else if (!msg.empty()) {
+				r.addWarning(msg);
+			}
+		}
+	}
+	if (warn_no_gt && (geo.has_geolocation || any_crs)) {
+		r.addWarning("no geotransform; using GDAL geolocation arrays (project/rectify to georeference)");
+	}
+}
+
+
+static void fill_geolocation_after_multidim(SpatRaster &r, GDALDataset *poDataset,
+		const std::string &md_fname, const std::vector<std::string> &drivers,
+		const std::vector<std::string> &options, bool has_2d_gt) {
+	SpatRasterSource geo;
+	if (poDataset != NULL && poDataset->GetRasterCount() > 0) {
+		fill_geolocation(poDataset, geo);
+	}
+	// Parent NetCDF open has no bands; probe the classic subdataset for each source.
+	// Skip sources that already have CF-detected geolocation (avoids noisy failures
+	// for /vsicurl/ on Windows where classic netCDF cannot open).
+	// Only NETCDF: subdataset names are valid here. HDF-EOS (and other
+	// multidim drivers) would fail that open once per array (#2162).
+	bool try_netcdf_subds = (poDataset == NULL);
+	if (poDataset != NULL) {
+		GDALDriver *drv = poDataset->GetDriver();
+		if (drv != NULL && EQUAL(drv->GetDescription(), "netCDF")) {
+			try_netcdf_subds = true;
+		}
+	}
+	if (!try_netcdf_subds) {
+		apply_geolocation_to_sources(r, geo, !has_2d_gt);
+		return;
+	}
+	if (!geo.has_geolocation && !geo.has_gcps && !r.source.empty()) {
+		bool need_probe = false;
+		for (size_t i=0; i<r.source.size(); i++) {
+			if (!r.source[i].has_geolocation && !r.source[i].has_gcps) {
+				need_probe = true;
+				break;
+			}
+		}
+		if (!need_probe) return;
+
+		gdal_capture_messages_begin();
+		for (size_t i=0; i<r.source.size(); i++) {
+			if (r.source[i].has_geolocation || r.source[i].has_gcps) continue;
+			std::string an = r.source[i].m_arrayname;
+			if (an.empty()) continue;
+			if (an[0] != '/') an = "/" + an;
+			std::string dsn = "NETCDF:\"" + md_fname + "\":" + an;
+			GDALDataset *sub = openGDAL(dsn, GDAL_OF_RASTER | GDAL_OF_READONLY, drivers, options);
+			if (sub == NULL) continue;
+			SpatRasterSource g;
+			fill_geolocation(sub, g);
+			GDALClose((GDALDatasetH) sub);
+			if (g.has_geolocation || g.has_gcps) {
+				r.source[i].has_geolocation = g.has_geolocation;
+				r.source[i].has_gcps = g.has_gcps;
+				r.source[i].geoloc_srs = g.geoloc_srs;
+				r.source[i].geoloc_x = g.geoloc_x;
+				r.source[i].geoloc_y = g.geoloc_y;
+				if (r.source[i].srs.is_empty() && !g.geoloc_srs.empty()) {
+					std::string msg;
+					if (r.source[i].srs.set(g.geoloc_srs, msg)) {
+						r.source[i].parameters_changed = true;
+					} else if (!msg.empty()) {
+						r.addWarning(msg);
+					}
+				}
+				if (!has_2d_gt && g.has_geolocation) {
+					geo.has_geolocation = true; // for a single warning below
+				}
+			}
+		}
+		gdal_capture_messages_end(false);
+		if (geo.has_geolocation && !has_2d_gt) {
+			r.addWarning("no geotransform; using GDAL geolocation arrays (project/rectify to georeference)");
+		}
+		return;
+	}
+	apply_geolocation_to_sources(r, geo, !has_2d_gt);
+}
+
 
 bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, std::vector<std::string> subdsname, std::vector<std::string> drivers, std::vector<std::string> options, std::vector<int> dims, bool noflip, bool guessCRS, std::vector<std::string> domains, size_t multi) {
 
-
+	// sf (and raster→terra load order) can replace CPL's error handler after
+	// terra::.gdalinit. Push terra's handler for this open so filters such as
+	// the #2161 "Array data type is not convertible" suppress still apply.
+	TerraGDALErrorHandlerScope gdal_err_scope;
 
 	if (fname == "WCS:") {
 		// for https://github.com/rspatial/terra/issues/1505
@@ -1020,13 +1181,21 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 	const bool md_probe = (multi >= 1);
 	if (md_probe) gdal_capture_messages_begin();
 #endif
+	// Classic-open GDAL diagnostics kept when the open fails and md may retry.
+	std::vector<std::string> classic_gdal_msgs;
 
     GDALDataset *poDataset = openGDAL(fname, GDAL_OF_RASTER | GDAL_OF_READONLY | GDAL_OF_VERBOSE_ERROR, drivers, clean_ops);
 
 #if GDAL_VERSION_NUM >= 3040000
-	// Keep the probe's messages only when the classic open succeeded; otherwise
-	// discard them (the multidim fallback below emits its own diagnostics).
-	if (md_probe) gdal_capture_messages_end(poDataset != NULL);
+	// Successful classic open: replay buffered messages. Failed open: hold them
+	// so they can be attached to the final error if the multidim retry also fails (#2185).
+	if (md_probe) {
+		if (poDataset != NULL) {
+			gdal_capture_messages_end(true);
+		} else {
+			classic_gdal_msgs = gdal_capture_messages_end_take();
+		}
+	}
 #endif
 
     if( poDataset == NULL )  {
@@ -1043,17 +1212,32 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			}
 			msg.clearError();
 			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains)) {
+				// Classic open failed (e.g. netCDF+/vsicurl/ on Windows); still try
+				// to upgrade CF-detected geolocation from a classic subdataset when possible.
+				fill_geolocation_after_multidim(*this, NULL, md_fname, drivers, clean_ops, false);
 				return true;
 			}
 			msg.clearError();
 		}
 #endif
+		std::string gdal_detail;
+		if (!classic_gdal_msgs.empty()) {
+			gdal_detail = "\n       (GDAL) ";
+			for (size_t i = 0; i < classic_gdal_msgs.size(); i++) {
+				if (i > 0) gdal_detail += "; ";
+				gdal_detail += classic_gdal_msgs[i];
+			}
+			//gdal_detail += ")";
+		}
 		if (looks_like_gdal_dsn(fname)) {
-			setError("cannot open this file as a SpatRaster: " + fname);
-		} else if (!file_exists(fname)) {
+			setError("cannot open this file as a SpatRaster: " + fname + gdal_detail);
+		} else if (!file_exists(fname) && classic_gdal_msgs.empty()) {
 			setError("file does not exist: " + fname);
+		} else if (!file_exists(fname)) {
+			// Remote / VSI open often fails without a local path; prefer GDAL's reason (#2185)
+			setError("cannot open this file as a SpatRaster: " + fname + gdal_detail);
 		} else {
-			setError("cannot open this file as a SpatRaster: " + fname);
+			setError("cannot open this file as a SpatRaster: " + fname + gdal_detail);
 		}
 		return false;
 	}
@@ -1093,19 +1277,48 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 			if (xmin > xmax) std::swap(xmin, xmax);
 			double ymax = adfGT[3];
 			double ymin = ymax + adfGT[5] * source[0].nrow;
+			bool flipped = false;
 			if (adfGT[5] > 0) {
-				source[0].flipped = true;
+				flipped = true;
 				std::swap(ymin, ymax);
 			}
-			source[0].extent = SpatExtent(xmin, xmax, ymin, ymax);
-			if (adfGT[2] != 0 || adfGT[4] != 0) {
-				source[0].rotated = true;
+			bool rotated = (adfGT[2] != 0 || adfGT[4] != 0);
+			for (size_t si = 0; si < source.size(); si++) {
+				// GRIB classic: 0-360 to -180-180 with pixel rewrap. MD keeps 0-360
+				// pixel order (#2178); shift columns when adopting classic extent.
+				if (gdrv == "GRIB") {
+					double md_xmin = source[si].extent.xmin;
+					double md_xmax = source[si].extent.xmax;
+					if (md_xmin > -1.0 && md_xmin < 2.0 && md_xmax > 350.0 && xmin < -170.0) {
+						double xres = (md_xmax - md_xmin) / (double) source[si].ncol;
+						if (xres > 0) {
+							size_t wrap = (size_t) ((md_xmin - xmin) / xres + 1e-9);
+							if (source[si].ncol > 0) {
+								wrap %= source[si].ncol;
+							}
+							source[si].m_x_wrap = wrap;
+						}
+					}
+				}
+				source[si].extent = SpatExtent(xmin, xmax, ymin, ymax);
+				if (flipped) {
+					source[si].flipped = true;
+				}
+				if (rotated) {
+					source[si].rotated = true;
+				}
 			}
 		};
 
+		// multi == 1: user explicitly asked for the multidim API (md = TRUE)
+		//   -> on failure, warn and fall back to the classic driver.
+		// multi >= 2: default / auto (md = NULL)
+		//   -> on failure, silently fall back to the classic driver.
+		const bool md_explicit = (multi == 1);
 		if (gdrv == "netCDF") {
 			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains) ){
 				override_extent_from_2d_gt();
+				fill_geolocation_after_multidim(*this, poDataset, md_fname, drivers, clean_ops, has_2d_gt);
 				GDALClose( (GDALDatasetH) poDataset );		
 				return true;
 			}
@@ -1115,12 +1328,17 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 		if (pszMetadata != nullptr && EQUAL(pszMetadata, "YES")) {	
 			if (constructFromFileMulti(md_fname, subds, md_subname, drivers, clean_ops, dims, noflip, guessCRS, domains) ){
 				override_extent_from_2d_gt();
+				fill_geolocation_after_multidim(*this, poDataset, md_fname, drivers, clean_ops, has_2d_gt);
 				GDALClose( (GDALDatasetH) poDataset );		
 				return true;
 			} else {
-				addWarning("cannot open this file with the multidim API: " + fname);
+				if (md_explicit) {
+					addWarning("cannot open this file with the multidim API: " + fname);
+				}
 				msg.clearError();
 			}
+		} else if (md_explicit) {
+			addWarning("this driver (" + gdrv + ") does not support the multidim API: " + fname);
 		}
 	}
 #endif
@@ -1181,6 +1399,7 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 
 	s.flipped = false;
 	s.rotated = false;
+	fill_geolocation(poDataset, s);
 	double adfGeoTransform[6];
 
 	bool hasExtent = true;
@@ -1220,31 +1439,27 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 	} else {
 		bool warn=true;
 		hasExtent = false;
-		if (adfGeoTransform[5] > 0) {
-			if (noflip) {
-				warn = false;
-				s.extset = true;
-			} else {
-				s.flipped = true;
-			}
-		}
+		// GetGeoTransform failed: GDAL still fills adfGeoTransform with the
+		// default (0,1,0,0,0,1) where gt[5]==1. Do not treat that as a
+		// flipped south-up raster (it broke project() for GEOLOCATION swaths).
 		SpatExtent e(0, s.ncol, 0, s.nrow);
 		s.extent = e;
 
-		if ((gdrv=="netCDF") || (gdrv == "HDF5")) {
+		if (s.has_geolocation) {
+			addWarning("no geotransform; using GDAL geolocation arrays (project/rectify to georeference)");
+			warn = false;
+		} else if ((gdrv=="netCDF") || (gdrv == "HDF5")) {
 			#ifndef standalone
 			setMessage("ncdf extent");
+			warn = false;
 			#else
 			addWarning("unknown extent. Cells not equally spaced?");
+			warn = false;
 			#endif
-		} else if (warn) {
+		}
+		if (warn) {
 			addWarning("unknown extent");
 		}
-
-		// seems to cause more harm then benefit #1627
-		//try {
-		//	s.flipped = adfGeoTransform[5] > 0;
-		//} catch(...) {}
 	}
 
 	s.memory = false;
@@ -1266,7 +1481,11 @@ bool SpatRaster::constructFromFile(std::string fname, std::vector<int> subds, st
 */
 	std::string crs = getDsWKT(poDataset);
 
-	if (crs.empty()) {
+	if (crs.empty() && !s.geoloc_srs.empty()) {
+		// Prefer SRS from GEOLOCATION domain or GCP projection (#1175)
+		crs = s.geoloc_srs;
+		s.parameters_changed = true;
+	} else if (crs.empty()) {
 		if (guessCRS && hasExtent && s.extent.xmin >= -180.1 && s.extent.xmax <= 360.1 && s.extent.ymin >= -90.1 && s.extent.ymax <= 90.1) {
 			crs = "OGC:CRS84";
 			s.parameters_changed = true;
@@ -1848,8 +2067,8 @@ std::vector<double> SpatRaster::readGDALsample(size_t src, size_t srows, size_t 
 
 	size_t row =0, col=0, nrows=nrow(), ncols=ncol();
 	if (source[src].hasWindow) {
-		row = row + source[0].window.off_row;
-		col = col + source[0].window.off_col;
+		row = row + source[src].window.off_row;
+		col = col + source[src].window.off_col;
 		srows = std::min(srows, nrows);
 		scols = std::min(scols, ncols);
 	}
@@ -2345,7 +2564,7 @@ bool SpatRaster::constructFromSDS(std::string filename, std::vector<std::string>
 
 	std::vector<std::string> skipped, used;
 	srcnl.push_back(nlyr());
-	used.push_back(varname[0]);
+	used.push_back(varname[cnt]);
 	SpatRaster out;
 	SpatOptions opt;
     for (size_t i=(cnt+1); i < sd.size(); i++) {

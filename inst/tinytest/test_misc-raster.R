@@ -69,3 +69,80 @@ expect_equal(as.numeric(wx[1, "value"]), 9)
 fd <- terrain(r, v = "flowdir")
 nid <- NIDP(fd)
 expect_true(all(nid[] >= 0 & nid[] <= 9, na.rm = TRUE))
+
+## as.polygons uses the correct layer (#2156)
+r_m <- rast(nrows = 10, ncols = 10, nlyrs = 2, vals=c(rep(NA, 50), rep(1:5, 30)))
+r_disk <- writeRaster(r_m,  tempfile(fileext = ".tif"), overwrite = TRUE)
+p_mem <- as.polygons(r_m[[2]])
+p_disk <- as.polygons(r_disk[[2]])
+expect_equal(sort(unique(values(p_disk)[, 1])), sort(unique(values(p_mem)[, 1])))
+expect_false(0 %in% values(p_disk)[, 1])
+
+## blocks() align to GDAL tile height on a tiled GeoTIFF
+nr <- 1024L
+bh <- 128L
+rt <- rast(nrows=nr, ncols=32, ext=ext(0, 32, 0, nr), crs="local")
+values(rt) <- 1:ncell(rt)
+ft <- tempfile(fileext=".tif")
+writeRaster(rt, ft, overwrite=TRUE,
+	gdal=c("TILED=YES", "BLOCKXSIZE=32", "BLOCKYSIZE=128"))
+tiled <- rast(ft)
+expect_equal(as.integer(fileBlocksize(tiled)[1, "rows"]), bh)
+
+opt <- terra:::spatOptions(steps=5)
+b <- tiled@pntr$getBlockSizeR(opt)
+rows <- as.integer(unlist(b$row))
+nrows <- as.integer(unlist(b$nrows))
+expect_equal(sum(nrows), nr)
+expect_equal(rows[1], 0L)
+# starts after the first chunk are tile-row boundaries; interior heights
+# are a multiple of the tile height (the last chunk may be a remainder)
+if (length(rows) > 1) {
+	expect_true(all(rows[-1] %% bh == 0L))
+}
+if (length(nrows) > 1) {
+	expect_true(all(nrows[-length(nrows)] %% bh == 0L))
+}
+
+# window that does not start on a file-block row: first chunk reaches the
+# next boundary; later chunks stay on file tile rows
+window(tiled) <- ext(0, 32, 0, nr - 50)
+nrw <- nrow(tiled)
+off <- 50L
+optw <- terra:::spatOptions(steps=4)
+bw <- tiled@pntr$getBlockSizeR(optw)
+wrows <- as.integer(unlist(bw$row))
+wnrows <- as.integer(unlist(bw$nrows))
+expect_equal(sum(wnrows), nrw)
+file_starts <- wrows + off
+if (length(file_starts) > 1) {
+	expect_true(all(file_starts[-1] %% bh == 0L))
+}
+
+# chunked math still matches in-memory values
+expect_equal(as.vector(values(tiled * 2)), as.vector(values(tiled)) * 2)
+
+unlink(ft)
+
+## writeValues col/ncols (rectangle, like readValues)
+x <- rast(nrows=4, ncols=6)
+writeStart(x, "")
+writeValues(x, 1:24, 1, 4)
+x <- writeStop(x)
+expect_equal(as.vector(values(x)), 1:24)
+
+x <- rast(nrows=4, ncols=6)
+writeStart(x, "")
+writeValues(x, 101:106, start=2, nrows=2, col=3, ncols=3)
+x <- writeStop(x)
+expect_equal(as.vector(values(x, row=2, nrows=2, col=3, ncols=3)), 101:106)
+expect_true(all(is.na(values(x)[1, ])))
+
+f <- tempfile(fileext=".tif")
+x <- rast(nrows=4, ncols=6)
+writeStart(x, f, overwrite=TRUE)
+writeValues(x, 201:206, start=2, nrows=2, col=3, ncols=3)
+x <- writeStop(x)
+expect_equal(as.vector(values(x, row=2, nrows=2, col=3, ncols=3)), 201:206)
+unlink(f)
+

@@ -185,6 +185,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gdal_build_info
+std::string gdal_build_info();
+RcppExport SEXP _terra_gdal_build_info() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(gdal_build_info());
+    return rcpp_result_gen;
+END_RCPP
+}
 // geos_version
 std::string geos_version(bool runtime, bool capi);
 RcppExport SEXP _terra_geos_version(SEXP runtimeSEXP, SEXP capiSEXP) {
@@ -381,6 +391,19 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// modal_value_r
+double modal_value_r(std::vector<double> values, unsigned ties, bool narm);
+RcppExport SEXP _terra_modal_value_r(SEXP valuesSEXP, SEXP tiesSEXP, SEXP narmSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double> >::type values(valuesSEXP);
+    Rcpp::traits::input_parameter< unsigned >::type ties(tiesSEXP);
+    Rcpp::traits::input_parameter< bool >::type narm(narmSEXP);
+    rcpp_result_gen = Rcpp::wrap(modal_value_r(values, ties, narm));
+    return rcpp_result_gen;
+END_RCPP
+}
 // pearson_cor
 double pearson_cor(std::vector<double> x, std::vector<double> y, bool narm);
 RcppExport SEXP _terra_pearson_cor(SEXP xSEXP, SEXP ySEXP, SEXP narmSEXP) {
@@ -498,6 +521,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_terra_gmdinfo", (DL_FUNC) &_terra_gmdinfo, 2},
     {"_terra_sd_info", (DL_FUNC) &_terra_sd_info, 1},
     {"_terra_gdal_version", (DL_FUNC) &_terra_gdal_version, 0},
+    {"_terra_gdal_build_info", (DL_FUNC) &_terra_gdal_build_info, 0},
     {"_terra_geos_version", (DL_FUNC) &_terra_geos_version, 2},
     {"_terra_metatdata", (DL_FUNC) &_terra_metatdata, 1},
     {"_terra_sdsmetatdata", (DL_FUNC) &_terra_sdsmetatdata, 1},
@@ -515,6 +539,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_terra_PROJ_network", (DL_FUNC) &_terra_PROJ_network, 2},
     {"_terra_proj_pipelines", (DL_FUNC) &_terra_proj_pipelines, 9},
     {"_terra_removeDriver", (DL_FUNC) &_terra_removeDriver, 1},
+    {"_terra_modal_value_r", (DL_FUNC) &_terra_modal_value_r, 3},
     {"_terra_pearson_cor", (DL_FUNC) &_terra_pearson_cor, 3},
     {"_terra_weighted_pearson_cor", (DL_FUNC) &_terra_weighted_pearson_cor, 4},
     {"_terra_uniqueSymmetricRows", (DL_FUNC) &_terra_uniqueSymmetricRows, 2},

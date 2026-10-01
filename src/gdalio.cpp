@@ -65,19 +65,67 @@ void gdal_capture_messages_begin() {
 	CPLPushErrorHandler((CPLErrorHandler) terra_capture_handler);
 }
 
-void gdal_capture_messages_end(bool emit) {
+static bool is_multidim_convert_noise_msg(const std::string &msg) {
+	return msg.find("Array data type is not convertible to buffer data type") != std::string::npos;
+}
+
+static std::vector<CapturedGDALMsg> gdal_capture_messages_pop() {
 	CPLPopErrorHandler();
 	std::vector<CapturedGDALMsg> msgs;
 	{
 		std::lock_guard<std::mutex> lock(terra_capture_mtx);
 		msgs.swap(terra_capture_msgs);
 	}
+	return msgs;
+}
+
+std::vector<std::string> gdal_capture_messages_end_take() {
+	std::vector<CapturedGDALMsg> msgs = gdal_capture_messages_pop();
+	std::vector<std::string> out;
+	out.reserve(msgs.size());
+	for (size_t i = 0; i < msgs.size(); i++) {
+		if (is_multidim_convert_noise_msg(msgs[i].msg)) {
+			continue;
+		}
+		out.push_back(msgs[i].msg);
+	}
+	return out;
+}
+
+void gdal_capture_messages_end(bool emit) {
+	std::vector<CapturedGDALMsg> msgs = gdal_capture_messages_pop();
 	if (emit) {
 		for (size_t i = 0; i < msgs.size(); i++) {
+			// Cosmetic HDF-EOS / multidim metadata noise (#2161); do not replay
+			// into whatever handler is underneath (often sf's).
+			if (is_multidim_convert_noise_msg(msgs[i].msg)) {
+				continue;
+			}
 			// CE_Fatal would not return; never replay it as fatal.
 			CPLErr cls = (msgs[i].eErrClass >= CE_Fatal) ? CE_Failure : msgs[i].eErrClass;
 			CPLError(cls, msgs[i].err_no, "%s", msgs[i].msg.c_str());
 		}
+	}
+}
+
+
+namespace {
+	CPLErrorHandler terra_cpl_error_handler = nullptr;
+}
+
+void gdal_set_terra_error_handler(CPLErrorHandler h) {
+	terra_cpl_error_handler = h;
+}
+
+void gdal_push_terra_error_handler() {
+	if (terra_cpl_error_handler != nullptr) {
+		CPLPushErrorHandler(terra_cpl_error_handler);
+	}
+}
+
+void gdal_pop_terra_error_handler() {
+	if (terra_cpl_error_handler != nullptr) {
+		CPLPopErrorHandler();
 	}
 }
 
@@ -260,18 +308,27 @@ std::vector<std::vector<std::string>> parse_metadata_sds(std::vector<std::string
 					nr.push_back("0");
 					nc.push_back("0");
 				} else if (d.size() == 2) {
+					// GDAL SDS DESC: [nrow x ncol]
 					nl.push_back("1");
 					nr.push_back(d[0]);
 					nc.push_back(d[1]);
+				} else if (d.size() == 3) {
+					// GDAL SDS DESC: [nrow x ncol x nlyr] (HDF-EOS, GeoTIFF, …)
+					nr.push_back(d[0]);
+					nc.push_back(d[1]);
+					nl.push_back(d[2]);
 				} else {
+					// 4+ dims, e.g. netCDF [t x z x y x x]: last two are
+					// spatial; product of the leading dims is nlyr
 					size_t ds = d.size()-1;
-					size_t nls = 0;
+					size_t nls = 1;
 					try {
-						nls = std::stol(d[ds-2]);
-						for (size_t i=0; i<(ds-2); i++) {
+						for (size_t i=0; i<(ds-1); i++) {
 							nls *= std::stol(d[i]);
 						}
-					} catch(...) {}
+					} catch(...) {
+						nls = 0;
+					}
 					nl.push_back(std::to_string(nls));
 					nr.push_back(d[ds-1]);
 					nc.push_back(d[ds]);
@@ -671,6 +728,20 @@ bool SpatRaster::open_gdal(GDALDatasetH &hDS, int src, bool update, SpatOptions 
     // Expose multidim API as classic
 	// only safe when the layer<->band mapping is trivial; otherwise use memory
 	if (fromfile && (!update) && source[isrc].is_multidim) {
+		// Prefer classic NETCDF/HDF subdataset when GEOLOCATION is known so
+		// GDAL warp sees native GEOLOCATION (AsClassicDataset does not) (#1175).
+		if (source[isrc].has_geolocation) {
+			std::string an = source[isrc].m_arrayname;
+			if (!an.empty()) {
+				if (an[0] != '/') an = "/" + an;
+				std::string dsn = "NETCDF:\"" + source[isrc].filename + "\":" + an;
+				gdal_capture_messages_begin();
+				hDS = openGDAL(dsn, GDAL_OF_RASTER | GDAL_OF_READONLY | GDAL_OF_SHARED,
+					source[isrc].open_drivers, source[isrc].open_ops);
+				gdal_capture_messages_end(hDS != NULL);
+				if (hDS != NULL) return true;
+			}
+		}
 		bool simple = (source[isrc].m_dims.size() == 2) || (source[isrc].m_dims.size() == 3);
 		if (simple && open_gdal_multidim(hDS, isrc)) {
 			return true;

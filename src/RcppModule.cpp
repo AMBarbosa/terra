@@ -152,13 +152,25 @@ Rcpp::List getRasterAttributes(SpatRaster* x) {
 Rcpp::DataFrame get_geometryDF(SpatVector* v) {
 	SpatDataFrame df = v->getGeometryDF();
 
-	Rcpp::DataFrame out = Rcpp::DataFrame::create(
+	Rcpp::DataFrame out;
+	if (v->has_z()) {
+		out = Rcpp::DataFrame::create(
+			Rcpp::Named("id") = df.iv[0],
+			Rcpp::Named("part") = df.iv[1],
+			Rcpp::Named("x") = df.dv[0],
+			Rcpp::Named("y") = df.dv[1],
+			Rcpp::Named("hole") = df.iv[2],
+			Rcpp::Named("z") = df.dv[2]
+		);
+	} else {
+		out = Rcpp::DataFrame::create(
 			Rcpp::Named("id") = df.iv[0],
 			Rcpp::Named("part") = df.iv[1],
 			Rcpp::Named("x") = df.dv[0],
 			Rcpp::Named("y") = df.dv[1],
 			Rcpp::Named("hole") = df.iv[2]
-	);
+		);
+	}
 	return out;
 }
 
@@ -587,13 +599,15 @@ RCPP_MODULE(spat){
 		.method("nrow", &SpatVector::nrow)
 		.method("ncol", &SpatVector::ncol)
 		.method("nnodes", &SpatVector::nnodes)
-		.method("project", (SpatVector (SpatVector::*)(std::string, bool, std::string, std::vector<double>, double, bool))(&SpatVector::project))
+		.method("project", (SpatVector (SpatVector::*)(std::string, bool, std::string, std::vector<std::string>))(&SpatVector::project))
 		.method("project_xy", &SpatVector::project_xy)
 		.method("read", &SpatVector::read)
 		.method("setGeometry", &SpatVector::setGeometry)
-		.method("setPointsXY", &SpatVector::setPointsGeometry)
+		.method("setPointsXY", (void (SpatVector::*)(std::vector<double>&, std::vector<double>&))(&SpatVector::setPointsGeometry))
+		.method("setPointsXYZ", (void (SpatVector::*)(std::vector<double>&, std::vector<double>&, std::vector<double>&))(&SpatVector::setPointsGeometry))
 		.method("setPointsDF", &SpatVector::setPointsDF)
 		.method("setLinesStartEnd", &SpatVector::setLinesStartEnd)
+		.method("has_z", &SpatVector::has_z)
 		.method("size", &SpatVector::size)
 		.method("subset_cols", ( SpatVector (SpatVector::*)(std::vector<long>))( &SpatVector::subset_cols ))
 		.method("subset_rows", ( SpatVector (SpatVector::*)(std::vector<long>))( &SpatVector::subset_rows ))
@@ -743,6 +757,7 @@ RCPP_MODULE(spat){
 		.method("getError", &SpatRaster::getError)
 		.method("getWarnings", &SpatRaster::getWarnings)
 		.method("getMessage", &SpatRaster::getMessage)
+		.method("get_misc", &SpatRaster::get_misc)
 
 		.method("addTag", &SpatRaster::addTag)
 		.method("getTags", &SpatRaster::getTags)
@@ -773,6 +788,11 @@ RCPP_MODULE(spat){
 
 		.method("is_rotated", &SpatRaster::is_rotated)
 		.method("is_flipped", &SpatRaster::is_flipped)
+		.method("has_geoloc", &SpatRaster::has_geoloc)
+		.method("has_gcps", &SpatRaster::has_gcps)
+		.method("geoloc_srs", &SpatRaster::geoloc_srs)
+		.method("geoloc_x", &SpatRaster::geoloc_x)
+		.method("geoloc_y", &SpatRaster::geoloc_y)
 
 		.method("setWindow", &SpatRaster::setWindow, "")
 		.method("removeWindow", &SpatRaster::removeWindow, "")
@@ -924,6 +944,7 @@ RCPP_MODULE(spat){
 		.method("writeStart", &SpatRaster::writeStart)
 		.method("writeStop", &SpatRaster::writeStop)
 		.method("writeValues", &SpatRaster::writeValues)
+		.method("writeValuesRect", &SpatRaster::writeValuesRect)
 		.method("writeRaster", &SpatRaster::writeRaster)
 		.method("canProcessInMemory", &SpatRaster::canProcessInMemory)
 		.method("chunkSize", &SpatRaster::chunkSize)
@@ -1031,8 +1052,8 @@ RCPP_MODULE(spat){
 		.method("layerCor", &SpatRaster::layerCor)
 		.method("global_weighted_mean", &SpatRaster::global_weighted_mean)
 
-		.method("initf", ( SpatRaster (SpatRaster::*)(std::string, bool, SpatOptions&) )( &SpatRaster::init ), "init fun")
-		.method("initv", ( SpatRaster (SpatRaster::*)(std::vector<double>, SpatOptions&) )( &SpatRaster::init ), "init value")
+		.method("initf", ( SpatRaster (SpatRaster::*)(std::string, bool, bool, SpatOptions&) )( &SpatRaster::init ), "init fun")
+		.method("initv", ( SpatRaster (SpatRaster::*)(std::vector<double>, bool, SpatOptions&) )( &SpatRaster::init ), "init value")
 		.method("is_in", &SpatRaster::is_in)
 		.method("is_in_cells", &SpatRaster::is_in_cells)
 
@@ -1113,8 +1134,8 @@ RCPP_MODULE(spat){
 
 		.method("rectify", &SpatRaster::rectify)
 		.method("stretch", &SpatRaster::stretch)
-		.method("warp", (SpatRaster (SpatRaster::*)(SpatRaster, std::string, std::string, bool, bool, bool, std::string, std::vector<double>, double, bool, double, double, SpatOptions&))(&SpatRaster::warper))
-		.method("warp_by_util", (SpatRaster (SpatRaster::*)(SpatRaster, std::string, std::string, bool, bool, bool, std::string, std::vector<double>, double, bool, double, double, SpatOptions&))(&SpatRaster::warper_by_util))
+		.method("warp", (SpatRaster (SpatRaster::*)(SpatRaster, std::string, std::string, bool, bool, bool, std::string, double, double, std::vector<std::string>, std::vector<std::string>, SpatOptions&))(&SpatRaster::warper))
+		.method("warp_by_util", (SpatRaster (SpatRaster::*)(SpatRaster, std::string, std::string, bool, bool, bool, std::string, double, double, std::vector<std::string>, std::vector<std::string>, SpatOptions&))(&SpatRaster::warper_by_util))
 		.method("warp_scale", &SpatRaster::warp_scale)
 		.method("resample", &SpatRaster::resample)
 		.method("zonal", &SpatRaster::zonal)
