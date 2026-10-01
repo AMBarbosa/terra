@@ -13,6 +13,9 @@ geometric operations with vector data.
 The current `GDAL` configuration options are obtained with
 `getGDALconfig` and changed with `setGDALconfig`.
 
+`gdal_has_pam` reports whether the linked GDAL was built with PAM
+support.
+
 `proj_ok` checks if the PROJ database with CRS definitions can be found.
 
 `projNetwork` controls whether PROJ can access network resources for
@@ -39,6 +42,7 @@ gdal(warn=NA, drivers=FALSE, ...)
 gdalCache(size=NA)
 setGDALconfig(option, value="")
 getGDALconfig(option)
+gdal_has_pam()
 clearVSIcache()
 libVersion(lib="all", parse=FALSE)
 unloadGDALdrivers(x)
@@ -69,7 +73,10 @@ projPaths(paths, with_proj = TRUE)
 
 - size:
 
-  numeric. The new cache size in MB
+  numeric. The new cache size in MB. terra sets the GDAL block cache to
+  64 MB when the package is loaded, unless environment variable
+  `GDAL_CACHEMAX` was already set. Use `gdalCache` to change it
+  afterwards
 
 - option:
 

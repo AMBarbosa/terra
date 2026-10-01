@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">terra</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-41</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9-52</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -264,7 +264,7 @@
           <code><a href="bestMatch.html">bestMatch(<i>&lt;SpatRaster&gt;</i>,<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="bestMatch.html">bestMatch(<i>&lt;SpatRaster&gt;</i>,<i>&lt;data.frame&gt;</i>)</a></code> <code><a href="bestMatch.html">bestMatch(<i>&lt;SpatRaster&gt;</i>,<i>&lt;matrix&gt;</i>)</a></code>
 
         </dt>
-        <dd>bestMatch</dd>
+        <dd>Similarity between points and raster cells</dd>
 
         <dt>
 
@@ -534,7 +534,7 @@
 
         <dt>
 
-          <code><a href="dimensions.html">ncol(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nrow(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nlyr(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">ncell(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nsrc(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">`ncol&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">`nrow&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">`nlyr&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">res(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">`res&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">xres(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">yres(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">ncol(<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="dimensions.html">nrow(<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="dimensions.html">length(<i>&lt;SpatVector&gt;</i>)</a></code>
+          <code><a href="dimensions.html">ncol(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nrow(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nlyr(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">ncell(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">size(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">nsrc(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">`ncol&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">`nrow&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">`nlyr&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">res(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">`res&lt;-`(<i>&lt;SpatRaster&gt;</i>,<i>&lt;numeric&gt;</i>)</a></code> <code><a href="dimensions.html">xres(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">yres(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="dimensions.html">ncol(<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="dimensions.html">nrow(<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="dimensions.html">length(<i>&lt;SpatVector&gt;</i>)</a></code>
 
         </dt>
         <dd>Dimensions of a SpatRaster or SpatVector and related objects</dd>
@@ -552,6 +552,13 @@
 
         </dt>
         <dd>Disaggregate raster cells or vector geometries</dd>
+
+        <dt>
+
+          <code><a href="distValues.html">distValues(<i>&lt;SpatRaster&gt;</i>,<i>&lt;matrix&gt;</i>)</a></code> <code><a href="distValues.html">distValues(<i>&lt;SpatRaster&gt;</i>,<i>&lt;data.frame&gt;</i>)</a></code> <code><a href="distValues.html">distValues(<i>&lt;SpatRaster&gt;</i>,<i>&lt;SpatVector&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Distance to reference values</dd>
 
         <dt>
 
@@ -758,7 +765,7 @@
 
         <dt>
 
-          <code><a href="gdal.html">gdal()</a></code> <code><a href="gdal.html">gdalCache()</a></code> <code><a href="gdal.html">setGDALconfig()</a></code> <code><a href="gdal.html">getGDALconfig()</a></code> <code><a href="gdal.html">clearVSIcache()</a></code> <code><a href="gdal.html">libVersion()</a></code> <code><a href="gdal.html">unloadGDALdrivers()</a></code> <code><a href="gdal.html">proj_ok()</a></code> <code><a href="gdal.html">projNetwork()</a></code> <code><a href="gdal.html">projPaths()</a></code>
+          <code><a href="gdal.html">gdal()</a></code> <code><a href="gdal.html">gdalCache()</a></code> <code><a href="gdal.html">setGDALconfig()</a></code> <code><a href="gdal.html">getGDALconfig()</a></code> <code><a href="gdal.html">gdal_has_pam()</a></code> <code><a href="gdal.html">clearVSIcache()</a></code> <code><a href="gdal.html">libVersion()</a></code> <code><a href="gdal.html">unloadGDALdrivers()</a></code> <code><a href="gdal.html">proj_ok()</a></code> <code><a href="gdal.html">projNetwork()</a></code> <code><a href="gdal.html">projPaths()</a></code>
 
         </dt>
         <dd>GDAL version, supported file formats, cache size, and PROJ coordinate transformation control</dd>
@@ -811,6 +818,20 @@
 
         </dt>
         <dd>Add halo-ed text to a plot</dd>
+
+        <dt>
+
+          <code><a href="has.geoloc.html">has.geoloc(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="has.geoloc.html">geoloc(<i>&lt;SpatRaster&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Geolocation arrays and GCPs</dd>
+
+        <dt>
+
+          <code><a href="has.z.html">has.z(<i>&lt;SpatVector&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Does a SpatVector have Z coordinates?</dd>
 
         <dt>
 
@@ -1094,7 +1115,7 @@
 
         <dt>
 
-          <code><a href="modal.html">modal(<i>&lt;SpatRaster&gt;</i>)</a></code>
+          <code><a href="modal.html">modal(<i>&lt;SpatRaster&gt;</i>)</a></code> <code><a href="modal.html">modal(<i>&lt;ANY&gt;</i>)</a></code>
 
         </dt>
         <dd>modal value</dd>
@@ -1818,7 +1839,7 @@
           <code><a href="union.html">union(<i>&lt;SpatVector&gt;</i>,<i>&lt;SpatVector&gt;</i>)</a></code> <code><a href="union.html">union(<i>&lt;SpatVector&gt;</i>,<i>&lt;missing&gt;</i>)</a></code> <code><a href="union.html">union(<i>&lt;SpatExtent&gt;</i>,<i>&lt;SpatExtent&gt;</i>)</a></code>
 
         </dt>
-        <dd>Union SpatVector or SpatExtent objects</dd>
+        <dd>Geometric union SpatVector or SpatExtent objects</dd>
 
         <dt>
 

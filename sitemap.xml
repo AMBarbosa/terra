@@ -78,6 +78,7 @@
 <url><loc>https://rspatial.github.io/terra/reference/dimensions.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/direction.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/disaggregate.html</loc></url>
+<url><loc>https://rspatial.github.io/terra/reference/distValues.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/distance.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/divide.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/dots.html</loc></url>
@@ -115,6 +116,8 @@
 <url><loc>https://rspatial.github.io/terra/reference/grid.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/gridDist.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/halo.html</loc></url>
+<url><loc>https://rspatial.github.io/terra/reference/has.geoloc.html</loc></url>
+<url><loc>https://rspatial.github.io/terra/reference/has.z.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/headtail.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/hist.html</loc></url>
 <url><loc>https://rspatial.github.io/terra/reference/identical.html</loc></url>

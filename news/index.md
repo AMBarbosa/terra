@@ -1,6 +1,100 @@
 # Changelog
 
-## version 1.9-41
+## version 1.9-52
+
+### bug fixes
+
+- `plot<SpatVector>` ignored `colNA` when `type="continuous"`
+  [\#2198](https://github.com/rspatial/terra/issues/2198) by Márcia
+  Barbosa
+
+### enhancements
+
+- GDAL raster block cache is set to 64 MB at load unless `GDAL_CACHEMAX`
+  is already set
+- raster processing chunks are aligned to the source file’s block height
+  when that is reported
+- `rasterize` of points now accepts `fun="modal"`
+- `init` gains argument `mask=TRUE` to set output cells to `NA` where
+  `x` is `NA` [\#2194](https://github.com/rspatial/terra/issues/2194) by
+  Márcia Barbosa
+- `focal` now errors if `NAonly` or `pad` (arguments from
+  [`raster::focal`](https://rspatial.github.io/terra/reference/focal.html))
+  are used [\#2189](https://github.com/rspatial/terra/issues/2189) by
+  leunissene-ESNZ
+- `writeValues` gains arguments `col` and `ncols` like `readValues`
+  [\#2188](https://github.com/rspatial/terra/issues/2188) by kbvernon
+- `scale<SpatRaster>` attaches attributes `"scaled:center"` and
+  `"scaled:scale"` as in
+  [`base::scale`](https://rdrr.io/r/base/scale.html)
+
+### new
+
+- `modal` for vectors implementation. Moved from the raster package but
+  using the terra C++ implementation
+- `distValues` to compute the distance from the (environmental) values
+  at sites to these values in each raster cell
+
+## version 1.9-50
+
+CRAN release: 2026-09-08
+
+Released 2026-09-08
+
+### bug fixes
+
+- `union` could in some cases return an intersection instead
+  [\#2175](https://github.com/rspatial/terra/issues/2175) by Alex
+  Chubaty
+- `erase` could return more attribute rows than geometries when a
+  polygon difference became a non-polygon (e.g. a line from a zero-area
+  ring) [\#2179](https://github.com/rspatial/terra/issues/2179) by Alex
+  Chubaty
+- terra did not compile with GDAL \< 3.4
+  [\#2174](https://github.com/rspatial/terra/issues/2174) by Wes
+  Cummings
+- terra did not compile with GEOS \< 3.10.0
+  [\#2172](https://github.com/rspatial/terra/issues/2172) by Shane
+  Sturrock
+- integer overflow (UBSAN) error in internal use of flowDir (reported by
+  CRAN)
+- `pitfiller` did not properly handle missing values
+  [\#2168](https://github.com/rspatial/terra/issues/2168) by Michael
+  Chirico
+- GRIB files with 0 to 360 longitude are by default remapped to -180 to
+  180 by the classic GDAL GRIB driver. The multdimensional driver does
+  not do that. This created a mismatched longitude extent (taken from
+  the classic driver) when opening such a file with the multidim
+  interface [\#2178](https://github.com/rspatial/terra/issues/2178) by
+  Yadong Liu
+- `rast` with the default multidim probe discarded GDAL open error
+  messages [\#2185](https://github.com/rspatial/terra/issues/2185) by
+  Krzysztof Dyba
+
+### enhancements
+
+- `project` gains arguments `warpOpts` (GDAL `-wo`, SpatRaster only) and
+  `transOpts` (transformer options for SpatRaster and SpatVector)
+  [\#2182](https://github.com/rspatial/terra/issues/2182) by Michael
+  Sumner.
+- `project` arguments `AOI`, `desired_accuracy`, and `allow_approx` were
+  removed in favor of `transOpts` (“AREA_OF_INTEREST=”,
+  “DESIRED_ACCURACY=”, “ALLOW_BALLPARK=”).
+- When projecting a SpatRaster to a SpatRaster template `y`, its lon/lat
+  extent is passed as `AREA_OF_INTEREST` unless this was set in
+  `transOpts`
+
+### new
+
+- `gdal_has_pam` to allow skipping tests if GDAL PAM is not enabled
+  [\#2170](https://github.com/rspatial/terra/issues/2170) by Michael
+  Chirico
+
+## version 1.9-46
+
+CRAN release: 2026-08-22
+
+Released 2026-08-21
 
 ### bug fixes
 
@@ -32,6 +126,22 @@
   Barbosa
 - `rast(, md=TRUE)` did not read the coordinates for HDF4/MODIS files
   [\#2148](https://github.com/rspatial/terra/issues/2148) by Kodi Arfer
+- `tile_apply` failed on SpatRasters with more than one source
+  [\#2150](https://github.com/rspatial/terra/issues/2150) by ebkurtz
+- `as.polygons` on a file-backed multi-layer SpatRaster always used the
+  first layer, not the selected layer
+  [\#2156](https://github.com/rspatial/terra/issues/2156) by Mehmet
+  Göktuğ Öztürk
+- improved multidim handling of GRIB files
+  [\#2160](https://github.com/rspatial/terra/issues/2160) by Kodi Arfer.
+- improved mutlidim handling of HDF-EOS files
+  [\#2163](https://github.com/rspatial/terra/issues/2163) by Monika Anna
+  Tomaszewska and Kodi Arfer
+  [\#2162](https://github.com/rspatial/terra/issues/2162)
+- `spatSample` did not handle a combination of raster sources if some
+  had a window and others not
+  [\#2164](https://github.com/rspatial/terra/issues/2164) by Krzysztof
+  Dyba
 
 ### enhancements
 
@@ -57,9 +167,20 @@
 - the “threads” option now defaults to 16 (instead of no limit) to avoid
   run-away thread counts on machines with very many cores. The “threads”
   argument of `project` and `resample` can now also be a number
+- argument `adj` in `add_mtext` now better aligns text along the margins
+  [\#2158](https://github.com/rspatial/terra/pull/2158) by Mehmet Göktuğ
+  Öztürk
+- `spatSample(method="startified")` now returns categorical values, not
+  their integer representation
+  [\#2159](https://github.com/rspatial/terra/issues/2159) by Krzysztof
+  Dyba
 
 ### new
 
+- `rast` better support for file that have geolocation/GCPs and new
+  functions `has.geoloc` and `geoloc`
+  [\#1175](https://github.com/rspatial/terra/issues/1175) by Michael
+  Sumner
 - `furdist` method to get the furthest distance from a point to any
   location on another geometry
 - `snapTo` method to move points to the nearest location on lines or
@@ -97,7 +218,7 @@ Released 2026-06-20
   Howard
 - With the new default “md=TRUE”, `rast` reported a “file does not
   exist” error with a GDAL DSN string (e.g. `NETCDF:".../file.nc":VAR`).
-  , `rast` now splits a `DRIVER:"path":VAR` DSN so the multidim API can
+  `rast` now splits a `DRIVER:"path":VAR` DSN so the multidim API can
   find the file. It reuses the classic 2D driver’s geotransform so the
   extent is reported in CRS units instead of raw coordinate-variable
   values [\#2093](https://github.com/rspatial/terra/issues/2093) by

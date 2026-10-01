@@ -25,7 +25,8 @@ different weather variables; and `SpatRasterCollection` and
 `SpatVectorCollection` that are equivalent to lists of `SpatRaster` or
 `SpatVector` objects. There is also a `SpatGraticule` class to assist in
 adding longitude/latitude lines and labels to a map with another
-coordinate reference system.
+coordinate reference system; and a `SpatNetwork` class for spatial
+graphs of nodes and edges (for example road or stream networks).
 
 These classes hold a C++ pointer to the data "reference class". You
 should not write scripts that directly access this pointer, as its
@@ -268,6 +269,8 @@ that).
 | [`NAflag`](https://rspatial.github.io/terra/reference/NAflag.md) | Set the `NA` value (for reading from a file with insufficient metadata) |
 | [`units`](https://rspatial.github.io/terra/reference/units.md) / `units<-` | Layer measurement units |
 | [`is.rotated`](https://rspatial.github.io/terra/reference/is.rotated.md) | Whether a SpatRaster is rotated |
+| [`has.geoloc`](https://rspatial.github.io/terra/reference/has.geoloc.md) | Whether a SpatRaster has GDAL geolocation arrays / GCPs |
+| [`geoloc`](https://rspatial.github.io/terra/reference/has.geoloc.md) | Geolocation / GCP metadata for a SpatRaster |
 | [`is.flipped`](https://rspatial.github.io/terra/reference/is.flipped.md) | Whether a SpatRaster is flipped |
 | [`datatype`](https://rspatial.github.io/terra/reference/datatype.md) | Storage datatype of layers |
 | [`scoff`](https://rspatial.github.io/terra/reference/scoff.md) / `scoff<-` | Scale-offset values |
@@ -458,6 +461,7 @@ not need to match each other.
 | [`is.lonlat`](https://rspatial.github.io/terra/reference/is.lonlat.md) | Test if an object has (or may have) a longitude/latitude coordinate reference system |
 | [`geomtype`](https://rspatial.github.io/terra/reference/geomtype.md) | Geometry type string |
 | [`is.lines`](https://rspatial.github.io/terra/reference/geomtype.md) / [`is.points`](https://rspatial.github.io/terra/reference/geomtype.md) | Geometry type tests |
+| [`has.z`](https://rspatial.github.io/terra/reference/has.z.md) | Whether geometries store Z coordinates |
 | [`is.polygons`](https://rspatial.github.io/terra/reference/geomtype.md) |  |
 | ————————— | —————————————————————————————— |
 
@@ -592,11 +596,29 @@ A SpatVectorCollection is a vector of SpatVector objects.
 | [`plot<SpatGraticule>`](https://rspatial.github.io/terra/reference/plot_graticule.md) | plot a graticule |
 | ————————— | —————————————————————————————— |
 
+## XXIX. SpatNetwork
+
+A SpatNetwork represents a spatial graph of nodes and edges (for example
+a road or stream network).
+
+|  |  |
+|----|----|
+| [`netw`](https://rspatial.github.io/terra/reference/netw.md) | Create a SpatNetwork from lines, an igraph, a file, or from scratch |
+| [`net_nodes`](https://rspatial.github.io/terra/reference/netw.md) | Get the nodes as a SpatVector of points |
+| [`net_edges`](https://rspatial.github.io/terra/reference/netw.md) | Get the edges as a SpatVector of lines |
+| [`net_nnodes`](https://rspatial.github.io/terra/reference/netw.md) / [`net_nedges`](https://rspatial.github.io/terra/reference/netw.md) | Number of nodes or edges |
+| [`net_directed`](https://rspatial.github.io/terra/reference/netw.md) | Is the network directed? |
+| [`net_weights`](https://rspatial.github.io/terra/reference/netw.md) / `net_weights<-` | Get or set edge weights |
+| [`shortestPath`](https://rspatial.github.io/terra/reference/shortestPath.md) | Shortest paths between nodes (Dijkstra) |
+| [`writeNetwork`](https://rspatial.github.io/terra/reference/writeNetwork.md) | Write a SpatNetwork to disk (GNM format) |
+| [`crs`](https://rspatial.github.io/terra/reference/crs.md) / [`ext`](https://rspatial.github.io/terra/reference/ext.md) | Coordinate reference system and extent |
+| ————————— | —————————————————————————————— |
+
 ## **General methods**
 
 ———————————————————————————————————————
 
-## XXIX. Conversion between spatial data objects from different packages
+## XXX. Conversion between spatial data objects from different packages
 
 You can coerce SpatRasters to Raster\* objects, after loading the
 `raster` package, with `as(object, "Raster")`, or `raster(object)` or
@@ -616,7 +638,7 @@ You can coerce SpatRasters to Raster\* objects, after loading the
 | [`as.contour`](https://rspatial.github.io/terra/reference/contour.md) | Contour lines from a SpatRaster |
 | ————————— | —————————————————————————————— |
 
-## XXX. Plotting
+## XXXI. Plotting
 
 ### Maps
 
@@ -676,6 +698,64 @@ You can coerce SpatRasters to Raster\* objects, after loading the
 | [`boxplot`](https://rspatial.github.io/terra/reference/boxplot.md) | Box plot of the values of a SpatRaster |
 | ————————— | —————————————————————————————— |
 
+## XXXII. Longitude/latitude data
+
+Most methods that involve distance, area, direction, or sampling account
+for the Earth's shape when the coordinate reference system is
+longitude/latitude. Distances and lengths are then expressed in meters
+(unless noted otherwise), typically computed on the WGS84 ellipsoid with
+Karney's algorithm (GeographicLib). Areas are computed on the ellipsoid
+as well. For these quantities it is generally better to use lon/lat data
+than a planar (projected) CRS, because map projections distort distance,
+area and/or direction. These methods include
+[`distance`](https://rspatial.github.io/terra/reference/distance.md),
+[`direction`](https://rspatial.github.io/terra/reference/direction.md),
+[`gridDist`](https://rspatial.github.io/terra/reference/gridDist.md),
+[`costDist`](https://rspatial.github.io/terra/reference/costDist.md),
+[`nearby`](https://rspatial.github.io/terra/reference/nearby.md),
+[`nearest`](https://rspatial.github.io/terra/reference/nearby.md),
+[`buffer`](https://rspatial.github.io/terra/reference/buffer.md),
+[`expanse`](https://rspatial.github.io/terra/reference/expanse.md),
+[`cellSize`](https://rspatial.github.io/terra/reference/cellSize.md),
+[`perim`](https://rspatial.github.io/terra/reference/perim.md),
+[`terrain`](https://rspatial.github.io/terra/reference/terrain.md),
+[`densify`](https://rspatial.github.io/terra/reference/densify.md),
+[`elongate`](https://rspatial.github.io/terra/reference/elongate.md),
+[`agitate`](https://rspatial.github.io/terra/reference/agitate.md),
+[`spatSample`](https://rspatial.github.io/terra/reference/sample.md),
+[`netw`](https://rspatial.github.io/terra/reference/netw.md),
+[`shortestPath`](https://rspatial.github.io/terra/reference/shortestPath.md),
+and
+[`tessellate`](https://rspatial.github.io/terra/reference/tessellate.md).
+
+Some methods do **not** use geodesic algorithms, require a planar CRS,
+or interpret parameters in the units of the CRS (degrees for lon/lat).
+
+Geometric "vector overlay" operations such as
+[`intersect`](https://rspatial.github.io/terra/reference/intersect.md),
+[`union`](https://rspatial.github.io/terra/reference/union.md),
+[`erase`](https://rspatial.github.io/terra/reference/erase.md),
+[`symdif`](https://rspatial.github.io/terra/reference/symdif.md),
+[`crop`](https://rspatial.github.io/terra/reference/crop.md) do not
+adjust for lon/lat intersections (use
+[`densify`](https://rspatial.github.io/terra/reference/densify.md) to
+approximate it better if needed)
+
+[`voronoi`](https://rspatial.github.io/terra/reference/voronoi.md),
+[`hull`](https://rspatial.github.io/terra/reference/convhull.md)) treat
+longitude/latitude coordinates as if they were planar.
+
+|  |  |
+|----|----|
+| [`viewshed`](https://rspatial.github.io/terra/reference/viewshed.md) | Requires a planar CRS (not lon/lat) |
+| [`surfArea`](https://rspatial.github.io/terra/reference/surfArea.md) | Requires a planar CRS with elevation in the same units |
+| [`simplifyGeom`](https://rspatial.github.io/terra/reference/simplify.md), [`snap`](https://rspatial.github.io/terra/reference/topology.md) | `tolerance` is in CRS units (degrees for lon/lat) |
+| [`voronoi`](https://rspatial.github.io/terra/reference/voronoi.md) | Snapping `tolerance` is in CRS units; the diagram is planar |
+| [`rasterizeWin`](https://rspatial.github.io/terra/reference/rasterizeWin.md) | Window size is in CRS units (no degree-to-meter conversion) |
+| [`focalMat`](https://rspatial.github.io/terra/reference/focalMat.md) | Filter size is in CRS units |
+| [`extract`](https://rspatial.github.io/terra/reference/extract.md) | `search_radius` for lon/lat uses mean latitude (approximate) |
+| ————————— | —————————————————————————————— |
+
 ## **Comparison with the raster package**
 
 ——————————————————————————————————————— "terra" was written to replace
@@ -683,13 +763,13 @@ the "raster" package. "terra" has a very similar, but simpler,
 interface; it is faster, and it can do much more. This section
 highlights some of the differences between the two packages.
 
-## XXXI. New method names
+## XXXIII. New method names
 
 `terra` has a single class `SpatRaster` for which `raster` has three
 (`RasterLayer, RasterStack, RasterBrick`). Likewise there is a single
 class for vector data `SpatVector` that replaces six `Spatial*` classes.
 Most method names are the same, but note the following important
-differences in methods names with the `raster` package
+differences in method names with the `raster` package
 
 |  |  |
 |----|----|
@@ -733,7 +813,7 @@ differences in methods names with the `raster` package
 | `stackApply` | [`tapp`](https://rspatial.github.io/terra/reference/tapp.md) |
 | `stackSelect` | [`selectRange`](https://rspatial.github.io/terra/reference/selectRange.md) |
 
-## XXXII. Changed behavior
+## XXXIV. Changed behavior
 
 Also note that even if function names are the same in `terra` and
 `raster`, their output can be different. In most cases this was done to
@@ -750,7 +830,7 @@ better. Here are some examples:
 |  | `raster` returns a list (for lines or polygons) or a matrix (for points, but without the ID |
 |  | column). You can use `list=TRUE` to get the results as a list |
 | [`values`](https://rspatial.github.io/terra/reference/values.md) | `terra` always returns a matrix. `raster` returns a vector for a `RasterLayer` |
-| [`Summary-methods`](https://rspatial.github.io/terra/reference/summarize-generics.md) | With `raster`, `mean(x, y)` and `mean(stack(x, y)` return the same result, a single |
+| [`Summary-methods`](https://rspatial.github.io/terra/reference/summarize-generics.md) | With `raster`, `mean(x, y)` and `mean(stack(x, y))` return the same result, a single |
 |  | layer with the mean of all cell values. This is also what `terra` returns with |
 |  | `mean(c(x, y))`, but with `mean(x, y)` the parallel mean is returned – that is, the |
 |  | computation is done layer-wise, and the number of layers in the output is the same as |
@@ -766,16 +846,16 @@ Except where indicated otherwise, the methods and functions in this
 package were written by Robert Hijmans. Andrew Gene Brown and Márcia
 Barbosa contributed many improvements to the code and documentation.
 Krzysztof Dyba contributed to documentation and github management and
-issues. The configuration scripts were written by Roger Bivand. Some of
-code using the GEOS library was adapted from code by Edzer Pebesma for
-`sf`. Emanuele Cordano contributed functionality for catchment related
-computations. Michael Chirico, Barry Rowlingson, and Michael D. Sumner
-also made important contributions.
+issues. Emanuele Cordano contributed functions for catchment related
+computations. The configuration scripts were written by Roger Bivand.
+Some of the code for using the GEOS library was adapted from code by
+Edzer Pebesma for `sf`. Michael Chirico, Barry Rowlingson, and Michael
+D. Sumner also made important contributions.
 
 This package is an attempt to climb on the shoulders of giants (GDAL,
 PROJ, GEOS, NCDF, GeographicLib, Rcpp, R). Many people have contributed
 by asking questions or [raising
 issues](https://github.com/rspatial/terra). Feedback and suggestions by
-Kendon Bell, Jean-Luc Dupouey, Sarah Endicott, Derek Friend, Alex Ilich,
-Agustin Lobo, Gerald Nelson, Jakub Nowosad, and Monika Tomaszewska have
-been especially helpful.
+Kodi Arfer, Kendon Bell, Jean-Luc Dupouey, Sarah Endicott, Derek Friend,
+Alex Ilich, Agustin Lobo, Gerald Nelson, Jakub Nowosad, and Monika
+Tomaszewska have been especially helpful.

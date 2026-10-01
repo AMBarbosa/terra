@@ -18,7 +18,7 @@ clamp(x, lower=-Inf, upper=Inf, values=TRUE, ...)
 
 - x:
 
-  SpatRaster
+  SpatRaster or numeric vector
 
 - lower:
 
@@ -48,7 +48,7 @@ clamp(x, lower=-Inf, upper=Inf, values=TRUE, ...)
 
 ## Value
 
-SpatRaster
+object of the same class as `x`
 
 ## See also
 
