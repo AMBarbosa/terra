@@ -19,7 +19,7 @@ or
 plot(x, y=1, col, type=NULL, mar=NULL, legend=TRUE, axes=!add, plg=list(), pax=list(), 
     maxcell=500000, smooth=FALSE, range=NULL, fill_range=FALSE, levels=NULL, 
   all_levels=FALSE, breaks=NULL, breakby="eqint", fun=NULL, colNA=NULL, alpha=NULL,
-  sort=FALSE,  reverse=FALSE, grid=FALSE, zebra=FALSE, ext=NULL, reset=FALSE,
+  sort=FALSE, reverse=FALSE, grid=FALSE, zebra=FALSE, ext=NULL, reset=FALSE,
   add=FALSE, buffer=FALSE, background=NULL, box=axes, clip=TRUE, overview=NULL, ...)
 
 # S4 method for class 'SpatRaster,missing'
@@ -56,8 +56,8 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
 
 - y:
 
-  missing or positive integer or name indicating the layer(s) to be
-  plotted
+  missing or positive integer or name indicating the layer(s) or
+  attributes(s) to be plotted
 
 - col:
 
@@ -104,7 +104,8 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
 
 - background:
 
-  background color. Default is no color (white)
+  background color. By default, the color is taken from `par("bg")`
+  (usually white; in some cases transparent)
 
 - box:
 
@@ -324,7 +325,8 @@ plot(x, y, main, mar=NULL, ext=NULL, ...)
 
   SpatExtent or other object for which
   [`ext`](https://rspatial.github.io/terra/reference/ext.md) returns
-  one. Can be use instead of xlim and ylim to set the extent of the plot
+  one. Can be used instead of xlim and ylim to set the extent of the
+  plot
 
 - reset:
 

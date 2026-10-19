@@ -1,12 +1,29 @@
 # Changelog
 
-## version 1.9-52
+## version 1.9-54
 
 ### bug fixes
 
 - `plot<SpatVector>` ignored `colNA` when `type="continuous"`
   [\#2198](https://github.com/rspatial/terra/issues/2198) by Márcia
   Barbosa
+- `rasterize` with `filename` and an integer `datatype` wrote the
+  background as 0 instead of `NA`
+  [\#2195](https://github.com/rspatial/terra/issues/2195) by
+  NewGraphEnvironment
+- `extract` with `layer` did not work well if `cells` or `xy` were set
+  to TRUE [\#2203](https://github.com/rspatial/terra/issues/2203) by
+  Breeze-Hu
+- `predict` failed on a one-column raster with more than about 40 rows
+  [\#2206](https://github.com/rspatial/terra/issues/2206) by Acanthiza
+- `crop` to disk treated valid `INT2U` values of 65535 as missing when
+  the source had no NoData tag
+  [\#2207](https://github.com/rspatial/terra/issues/2207) by Jakub
+  Nowosad
+- `crop` with `mask=TRUE` on a raster opened with the multidimensional
+  API ignored the cropping window
+  [\#2212](https://github.com/rspatial/terra/issues/2212) by Ondřej
+  Ledvinka
 
 ### enhancements
 
@@ -27,13 +44,16 @@
 - `scale<SpatRaster>` attaches attributes `"scaled:center"` and
   `"scaled:scale"` as in
   [`base::scale`](https://rdrr.io/r/base/scale.html)
+- removed spurious “missing geotransform” warning for some file when
+  using `rast(..., md=TRUE)`
+  [\#2208](https://github.com/rspatial/terra/issues/2208) by Kodi Arfer
 
 ### new
 
 - `modal` for vectors implementation. Moved from the raster package but
   using the terra C++ implementation
 - `distValues` to compute the distance from the (environmental) values
-  at sites to these values in each raster cell
+  at sites to these values in each raster cell.
 
 ## version 1.9-50
 
